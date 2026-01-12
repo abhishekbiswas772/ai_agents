@@ -1,13 +1,15 @@
 
 from typing import Any, AsyncGenerator, Dict, List
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 from clients.response import TextDelta, TokenUsage, StreamEvent, EventType
+import asyncio
 
 
 
 class LLMClient:
     def __init__(self) -> None:
-        self._client : AsyncOpenAI | None = None 
+        self._client: AsyncOpenAI | None = None 
+        self.max_retries: int = 3
 
     def get_client(self) -> AsyncOpenAI:
         if self._client is None:
@@ -50,14 +52,12 @@ class LLMClient:
                     type=EventType.TEXT_DELTA,
                     text_delta=TextDelta(content=delta.content),
                 )
-
+                
         yield StreamEvent(
             type=EventType.MESSAGE_COMPLETE,
             finish_reason=finish_reason,
             usage=usage
         )
-
-
 
 
     async def _non_stream_response(self, client: AsyncOpenAI, kwargs: Dict[str, Any]) -> StreamEvent:
@@ -84,16 +84,45 @@ class LLMClient:
             
 
     async def chat_completion(self, messages: List[Dict[str, Any]], stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
-        client = self.get_client()
-        kwargs : Dict[str, Any] = {
-            "model" : "mistralai/devstral-2512:free",
-            "messages" : messages,
-            "stream" : stream
-        }
-        if stream:
-            async for event in self._stream_response(client=client, kwargs=kwargs):
-                yield event
-        else:
-            event = await self._non_stream_response(client=client, kwargs=kwargs)
-            yield event
-        return 
+        for attemps in range(self.max_retries + 1):
+            try:
+                client = self.get_client()
+                kwargs : Dict[str, Any] = {
+                    "model" : "mistralai/devstral-2512:free",
+                    "messages" : messages,
+                    "stream" : stream
+                }
+                if stream:
+                    async for event in self._stream_response(client=client, kwargs=kwargs):
+                        yield event
+                else:
+                    event = await self._non_stream_response(client=client, kwargs=kwargs)
+                    yield event
+                return 
+
+            except RateLimitError as e:
+                if attemps < self.max_retries:
+                    wait_time = 2 ** attemps
+                    await asyncio.sleep(wait_time)
+                else:
+                    yield StreamEvent(
+                        type=EventType.ERROR,
+                        error=f"Rate limit is exceeded: {e}",
+                    )
+                    return
+            except APIConnectionError as e:
+                if attemps < self.max_retries:
+                    wait_time = 2 ** attemps
+                    await asyncio.sleep(wait_time)
+                else:
+                    yield StreamEvent(
+                        type=EventType.ERROR,
+                        error=f"Connection Error: {e}",
+                    )
+                    return
+            except APIError as e:
+                yield StreamEvent(
+                    type=EventType.ERROR,
+                    error=f"API Error: {e}",
+                )
+                return 
