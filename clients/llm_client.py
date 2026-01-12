@@ -84,14 +84,14 @@ class LLMClient:
             
 
     async def chat_completion(self, messages: List[Dict[str, Any]], stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
+        client = self.get_client()
+        kwargs : Dict[str, Any] = {
+            "model" : "mistralai/devstral-2512:free",
+            "messages" : messages,
+            "stream" : stream
+        }
         for attemps in range(self.max_retries + 1):
             try:
-                client = self.get_client()
-                kwargs : Dict[str, Any] = {
-                    "model" : "mistralai/devstral-2512:free",
-                    "messages" : messages,
-                    "stream" : stream
-                }
                 if stream:
                     async for event in self._stream_response(client=client, kwargs=kwargs):
                         yield event
