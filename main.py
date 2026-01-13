@@ -1,34 +1,56 @@
-from typing import Any, Dict
-from clients.llm_client import LLMClient
+import sys
+from agents.agents import Agent
 import asyncio
 import click
+from agents.events import AgentEventType
+from ui.tui import TUI, get_console
 
+console = get_console()
 
 class CLI:
     def __init__(self):
-        pass
+        self.agent: Agent | None = None
+        self.tui = TUI(console=console)
 
-    def run_single(self):
-        pass 
+    async def run_single(self, message: str) -> str | None:
+        async with Agent() as agent:
+            self.agent = agent
+            return await self._process_message(message)
 
-async def run(messages : Dict[str, Any]):
-    client = LLMClient()
-    async for event in client.chat_completion(
-        messages=messages,
-        stream=True
-    ):
-        print(event)
-    print("DONE")
+    async def _process_message(self, message: str) -> str | None:
+        if not self.agent:
+            return None 
+        assistance_streaming = False
+        final_response: str | None = None
+        async for event in self.agent.run(messages=message):
+            if event.type == AgentEventType.TEXT_DELTA:
+                content = event.data.get("content", "")
+                if not assistance_streaming:
+                    self.tui.begin_assistance()
+                    assistance_streaming = True
+                self.tui.stream_assistant_delta(content=content) 
+            elif event.type == AgentEventType.TEXT_COMPLETE:
+                final_response = event.data.get("content")
+                if assistance_streaming:
+                    self.tui.end_assistance()
+                    assistance_streaming = False
+            elif event.type == AgentEventType.AGENT_ERROR:
+                error = event.data.get("error", "unknown error")
+                console.print(f"\n[error]Error: {error}[/error]")
+                
+
+        return final_response
+
+
 
 @click.command()
 @click.argument("prompt", required=False)
 def main(prompt : str | None):
-    print(prompt)
-    messages = [{
-        "role" : "user",
-        "content" : prompt
-    }]
-    asyncio.run(run(messages=messages))
+    cli = CLI()
+    if prompt:
+        result = asyncio.run(cli.run_single(prompt))
+        if result is None:
+            sys.exit(1)
     
 
 if __name__ == "__main__":

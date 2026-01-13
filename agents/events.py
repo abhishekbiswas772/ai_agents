@@ -42,7 +42,7 @@ class AgentEvent:
     @classmethod
     def agent_error(cls, error : str, details: Dict[str, Any] | None = None) -> AgentEvent:
         return cls(
-            type=AgentEventType.AGENT_END,
+            type=AgentEventType.AGENT_ERROR,
             data = {
                 "error" : error,
                 "details" : details,

@@ -1,7 +1,7 @@
 
 from typing import Any, AsyncGenerator, Dict, List
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
-from clients.response import TextDelta, TokenUsage, StreamEvent, EventType
+from clients.response import TextDelta, TokenUsage, StreamEvent, StreamEventType
 import asyncio
 
 
@@ -23,7 +23,7 @@ class LLMClient:
     #closing the clinet when not needed 
     async def close(self) -> None:
         if self._client:
-            self._client.close()
+            await self._client.close()
             self._client = None 
 
     async def _stream_response(self, client : AsyncGenerator, kwargs : Dict[str, Any]) -> AsyncGenerator[StreamEvent, None]:
@@ -49,12 +49,12 @@ class LLMClient:
 
             if delta.content:
                 yield StreamEvent(
-                    type=EventType.TEXT_DELTA,
+                    type=StreamEventType.TEXT_DELTA,
                     text_delta=TextDelta(content=delta.content),
                 )
                 
         yield StreamEvent(
-            type=EventType.MESSAGE_COMPLETE,
+            type=StreamEventType.MESSAGE_COMPLETE,
             finish_reason=finish_reason,
             usage=usage
         )
@@ -76,7 +76,7 @@ class LLMClient:
                 cached_tokens=response.usage.prompt_tokens_details.cached_tokens
             )
         return StreamEvent(
-            type=EventType.MESSAGE_COMPLETE,
+            type=StreamEventType.MESSAGE_COMPLETE,
             text_delta=text_delta,
             finish_reason=choice.finish_reason,
             usage=usage
@@ -106,7 +106,7 @@ class LLMClient:
                     await asyncio.sleep(wait_time)
                 else:
                     yield StreamEvent(
-                        type=EventType.ERROR,
+                        type=StreamEventType.ERROR,
                         error=f"Rate limit is exceeded: {e}",
                     )
                     return
@@ -116,13 +116,13 @@ class LLMClient:
                     await asyncio.sleep(wait_time)
                 else:
                     yield StreamEvent(
-                        type=EventType.ERROR,
+                        type=StreamEventType.ERROR,
                         error=f"Connection Error: {e}",
                     )
                     return
             except APIError as e:
                 yield StreamEvent(
-                    type=EventType.ERROR,
+                    type=StreamEventType.ERROR,
                     error=f"API Error: {e}",
                 )
                 return 
