@@ -14,8 +14,8 @@ class LLMClient:
     def get_client(self) -> AsyncOpenAI:
         if self._client is None:
             self._client = AsyncOpenAI(
-                api_key='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',
-                base_url='https://openrouter.ai/api/v1'
+                api_key='sk-xx',
+                base_url='http://127.0.0.1:1234/v1'
             ) 
         return self._client
 
@@ -86,9 +86,9 @@ class LLMClient:
     async def chat_completion(self, messages: List[Dict[str, Any]], stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
         client = self.get_client()
         kwargs : Dict[str, Any] = {
-            "model" : "mistralai/devstral-2512:free",
+            "model" : "qwen/qwen3-1.7b",
             "messages" : messages,
-            "stream" : stream
+            "stream" : stream,
         }
         for attemps in range(self.max_retries + 1):
             try:

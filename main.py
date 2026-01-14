@@ -22,7 +22,7 @@ class CLI:
             return None 
         assistance_streaming = False
         final_response: str | None = None
-        async for event in self.agent.run(messages=message):
+        async for event in self.agent.run(message=message):
             if event.type == AgentEventType.TEXT_DELTA:
                 content = event.data.get("content", "")
                 if not assistance_streaming:
