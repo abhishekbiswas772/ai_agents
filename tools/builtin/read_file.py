@@ -67,14 +67,16 @@ class ReadFileTool(Tool):
             selected_lines = lines[start_idx: end_idx]
             formatted_lines = []
             for i, line in enumerate(selected_lines, start = start_idx + 1):
-                formatted_lines.append(f"{i : 6} | line")
+                formatted_lines.append(f"{i : 6} | {line}")
 
             output = "\n".join(formatted_lines)
-            token_count = count_token(output)
+            model = "gpt-4"  # Default model for token counting
+            token_count_val = count_token(output, model)
             truncated = False
-            if token_count > self.MAX_OUTPUT_TOKENS:
+            if token_count_val > self.MAX_OUTPUT_TOKENS:
                 output  = truncate_text(
                     output,
+                    model,
                     self.MAX_OUTPUT_TOKENS,
                     suffix=f"\n...[truncated {total_lines} total lines]"
                 )

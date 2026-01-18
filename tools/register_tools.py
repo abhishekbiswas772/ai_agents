@@ -39,7 +39,7 @@ class ToolRegistery:
             return self._tools[name]
         return None
     
-    async def invoke(self, name: str, params: Dict[str, Any], cwd: Path -> ToolRegistery:
+    async def invoke(self, name: str, params: Dict[str, Any], cwd: Path) -> ToolResult:
         tool = self.get(name=name)
         if tool is None:
             return ToolResult.error_result(

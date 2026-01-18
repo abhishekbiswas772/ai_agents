@@ -16,7 +16,7 @@ def count_token(text: str, model: str) -> int:
         return len(tokenizer(text))
     return estimate_token(text=text)
     
-def estimate_token(text: str) -> str:
+def estimate_token(text: str) -> int:
     return max(1, len(text) // 4)
 
 
@@ -44,7 +44,7 @@ def _truncate_by_lines(text: str, target_tokens: int, suffix: str, model: str) -
         line_tokens  = count_token(line + "\n", model)
         if current_tokens + line_tokens > target_tokens:
             break
-        result_lines.append(lines)
+        result_lines.append(line)
         current_tokens += line_tokens
     
     if not result_lines:

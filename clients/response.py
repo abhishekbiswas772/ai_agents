@@ -12,6 +12,20 @@ class StreamEventType(str, Enum):
     TOOL_CALL_COMPLETE  = "tool_call_complete"
 
 @dataclass
+class ToolResultMessage:
+    tool_call_id : str
+    content : str 
+    is_error : bool = False 
+
+
+    def to_openai_message(self) -> Dict[str, Any]:
+        return {
+            "role" : 'tool',
+            "tool_call_id" : self.tool_call_id,
+            "content" : self.content 
+        }
+
+@dataclass
 class TextDelta:
     content : str 
     def __str__(self):
@@ -64,7 +78,7 @@ def parse_tool_call_arguments(arguments_str: str) -> Dict[str, Any]:
     if not arguments_str:
         return {}
     try:
-        return json.load(arguments_str)
+        return json.loads(arguments_str)  # Use loads() for strings, not load()
     except json.JSONDecodeError:
         return {
             "raw_arguments" : arguments_str

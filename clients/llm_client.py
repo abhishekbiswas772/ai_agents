@@ -1,22 +1,30 @@
-
 from typing import Any, AsyncGenerator, Dict, List
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 from clients.response import TextDelta, TokenUsage, StreamEvent, StreamEventType, ToolCall, ToolCallDelta, parse_tool_call_arguments
 import asyncio
+import os
+from dotenv import load_dotenv
 
 
 
 class LLMClient:
     def __init__(self) -> None:
-        self._client: AsyncOpenAI | None = None 
+        self._client: AsyncOpenAI | None = None
         self.max_retries: int = 3
+        self._think_buffer: str = ""
+        self._in_think_tag: bool = False
 
     def get_client(self) -> AsyncOpenAI:
         if self._client is None:
+            # Option 1: Use local LM Studio (uncomment these lines)
+            # self._client = AsyncOpenAI(
+            #     api_key='sk-xx',
+            #     base_url='http://127.0.0.1:1234/v1'
+            # )
+            load_dotenv()
             self._client = AsyncOpenAI(
-                api_key='sk-xx',
-                base_url='http://127.0.0.1:1234/v1'
-            ) 
+                api_key=os.getenv('OPENAI_API_KEY'),
+            )
         return self._client
 
 
@@ -24,15 +32,48 @@ class LLMClient:
     async def close(self) -> None:
         if self._client:
             await self._client.close()
-            self._client = None 
+            self._client = None
+
+    # def _filter_think_tags(self, content: str) -> str:
+    #     """Remove <think> tags and their content from the response."""
+    #     result = []
+    #     i = 0
+    #     while i < len(content):
+    #         if self._in_think_tag:
+    #             # Look for closing tag
+    #             close_idx = content.find('</think>', i)
+    #             if close_idx != -1:
+    #                 self._in_think_tag = False
+    #                 self._think_buffer = ""
+    #                 i = close_idx + 8  # Skip past </think>
+    #             else:
+    #                 # Still inside think tag, buffer everything
+    #                 self._think_buffer += content[i:]
+    #                 break
+    #         else:
+    #             # Look for opening tag
+    #             open_idx = content.find('<think>', i)
+    #             if open_idx != -1:
+    #                 # Add content before the tag
+    #                 result.append(content[i:open_idx])
+    #                 self._in_think_tag = True
+    #                 i = open_idx + 7  # Skip past <think>
+    #             else:
+    #                 # No more tags, add rest of content
+    #                 result.append(content[i:])
+    #                 break
+
+    #     return ''.join(result) 
 
     async def _stream_response(self, client : AsyncGenerator, kwargs : Dict[str, Any]) -> AsyncGenerator[StreamEvent, None]:
         response = await client.chat.completions.create(**kwargs)
-        finish_reason : str | None = None 
-        usage : TokenUsage | None = None 
+        finish_reason : str | None = None
+        usage : TokenUsage | None = None
         tool_calls: Dict[int, Dict[str, Any]] = {}
+        chunk_count = 0
 
         async for chunk in response:
+            chunk_count += 1
             if hasattr(chunk, "usage") and chunk.usage:
                 usage = TokenUsage(
                     prompt_tokens=chunk.usage.prompt_tokens,
@@ -53,6 +94,7 @@ class LLMClient:
                     type=StreamEventType.TEXT_DELTA,
                     text_delta=TextDelta(content=delta.content),
                 )
+
             if delta.tool_calls:
                 for tool_call_delta in delta.tool_calls:
                     idx =  tool_call_delta.index
@@ -63,16 +105,16 @@ class LLMClient:
                             'arguments' : ''
                         }
 
-                        if tool_call_delta.function:
-                            if tool_call_delta.function.name:
-                                tool_calls[idx]['name'] = tool_call_delta.function.name
-                                yield StreamEvent(
-                                    type=StreamEventType.TOOL_CALL_START,
-                                    tool_call_delta=ToolCallDelta(
-                                        call_id=tool_calls[idx]['id'],
-                                        name=tool_call_delta.function.name,
-                                    )
+                    if tool_call_delta.function:
+                        if tool_call_delta.function.name:
+                            tool_calls[idx]['name'] = tool_call_delta.function.name
+                            yield StreamEvent(
+                                type=StreamEventType.TOOL_CALL_START,
+                                tool_call_delta=ToolCallDelta(
+                                    call_id=tool_calls[idx]['id'],
+                                    name=tool_call_delta.function.name,
                                 )
+                            )
 
                         if tool_call_delta.function.arguments:
                             tool_calls[idx]['arguments'] += tool_call_delta.function.arguments
@@ -85,15 +127,17 @@ class LLMClient:
                                 )
                             )
 
+        # print(f"[DEBUG] Stream finished. Chunks: {chunk_count}, Tool calls: {len(tool_calls)}, Finish reason: {finish_reason}")
+
         for idx, tc in tool_calls.items():
             yield StreamEvent(
                 type=StreamEventType.TOOL_CALL_COMPLETE,
-                tool_call_delta=ToolCall(
+                tool_call=ToolCall(
                     call_id=tc['id'],
                     name=tc['name'],
                     arguments=parse_tool_call_arguments(tc['arguments'])
                 )
-            ) 
+            )
 
         yield StreamEvent(
             type=StreamEventType.MESSAGE_COMPLETE,
@@ -160,9 +204,11 @@ class LLMClient:
     async def chat_completion(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]] | None = None, stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
         client = self.get_client()
         kwargs : Dict[str, Any] = {
-            "model" : "qwen/qwen3-1.7b",
+            "model" : "gpt-3.5-turbo",  
             "messages" : messages,
             "stream" : stream,
+            "temperature": 0.1,  
+            # "max_tokens": 4096,
         }
         if tools:
             kwargs['tools'] = self._build_tools(tools=tools)
@@ -170,6 +216,7 @@ class LLMClient:
 
         for attemps in range(self.max_retries + 1):
             try:
+                # print(f"[DEBUG] Calling OpenAI API with model: {kwargs['model']}")
                 if stream:
                     async for event in self._stream_response(client=client, kwargs=kwargs):
                         yield event
@@ -179,6 +226,7 @@ class LLMClient:
                 return 
 
             except RateLimitError as e:
+                # print(f"[DEBUG] Rate limit error: {e}")
                 if attemps < self.max_retries:
                     wait_time = 2 ** attemps
                     await asyncio.sleep(wait_time)
@@ -189,6 +237,7 @@ class LLMClient:
                     )
                     return
             except APIConnectionError as e:
+                # print(f"[DEBUG] Connection error: {e}")
                 if attemps < self.max_retries:
                     wait_time = 2 ** attemps
                     await asyncio.sleep(wait_time)
@@ -199,8 +248,16 @@ class LLMClient:
                     )
                     return
             except APIError as e:
+                # print(f"[DEBUG] API error: {e}")
                 yield StreamEvent(
                     type=StreamEventType.ERROR,
                     error=f"API Error: {e}",
+                )
+                return
+            except Exception as e:
+                # print(f"[DEBUG] Unexpected error: {type(e).__name__}: {e}")
+                yield StreamEvent(
+                    type=StreamEventType.ERROR,
+                    error=f"Unexpected error: {e}",
                 )
                 return 

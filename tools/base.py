@@ -51,6 +51,11 @@ class ToolResult:
             error = None,
             **kwargs
         )
+    
+    def to_model_output(self) -> str:
+        if self.success:
+            return self.output
+        return f"Error: {self.error} \n\n Output: \n{self.output}"
 
 
 class Tool(ABC):
@@ -70,7 +75,7 @@ class Tool(ABC):
         pass
 
 
-    def validate_parms(self, params: Dict[str, Any]) -> List[str]:
+    def validate_params(self, params: Dict[str, Any]) -> List[str]:
         schema = self.schema
         if isinstance(schema, type) and issubclass(schema, BaseModel):
             try:
@@ -78,9 +83,9 @@ class Tool(ABC):
             except ValidationError as e:
                 errors = []
                 for error in e.errors():
-                    "".join(str(x) for x in error.get("loc", []))
+                    field = ".".join(str(x) for x in error.get("loc", []))
                     msg = error.get("msg", "Validation error")
-                    errors.appen(f"Parameter '{field}' : {msg}")
+                    errors.append(f"Parameter '{field}' : {msg}")
                 return errors
             except Exception as e:
                 return [str(e)]
