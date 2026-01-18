@@ -1,3 +1,4 @@
+from typing import List
 import tiktoken
 
 def get_tokenizer(model: str):
@@ -19,28 +20,37 @@ def estimate_token(text: str) -> str:
     return max(1, len(text) // 4)
 
 
-def truncate_text(
-    text : str,
-    model : str,
-    max_tokens: int,
-    suffix : str = "\n...[truncated]",
-    preserve_lines: bool = True
-):
+def truncate_text(text : str, model : str, max_tokens: int, suffix : str = "\n...[truncated]", preserve_lines: bool = True):
     current_token = count_token(text, model)
     if current_token <= max_tokens:
         return text
     suffix_tokens = count_token(suffix, model)
-    target_token = max_tokens - suffix_tokens
+    target_tokens = max_tokens - suffix_tokens
 
-    if target_token <= 0:
+    if target_tokens <= 0:
         return suffix.strip()
     
     if preserve_lines:
-        pass
+        return _truncate_by_lines(text, target_tokens, suffix, model)
+    else:
+        return _truncate_by_chars(text, target_tokens, suffix, model)
 
 
 def _truncate_by_lines(text: str, target_tokens: int, suffix: str, model: str) -> str:
-    pass
+    lines = text.split("\n")
+    result_lines : List[str] = []
+    current_tokens = 0
+    for line in lines:
+        line_tokens  = count_token(line + "\n", model)
+        if current_tokens + line_tokens > target_tokens:
+            break
+        result_lines.append(lines)
+        current_tokens += line_tokens
+    
+    if not result_lines:
+        return _truncate_by_chars(text, target_tokens, suffix, model)
+    return "\n".join(result_lines) + suffix
+
 
 def _truncate_by_chars(text: str, target_tokens: int, suffix: str, model: str) -> str:
     low = 0

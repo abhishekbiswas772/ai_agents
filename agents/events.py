@@ -3,6 +3,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Any, Dict
 from clients.response import TokenUsage
+from tools.base import ToolResult
 
 class AgentEventType(Enum):
     #AGENT LIFECYCLE
@@ -13,6 +14,11 @@ class AgentEventType(Enum):
     # TEXT Streaming 
     TEXT_DELTA  = "text_delta"
     TEXT_COMPLETE = "text_complete"
+
+    #tool call
+    TOOL_CALL_START = "tool_call_start"
+    TOOL_CALL_COMPLETE = "tool_call_complete"
+    
 
 
 @dataclass
@@ -66,4 +72,32 @@ class AgentEvent:
                 "content" : content,
             }
         )
+    
+
+    @classmethod
+    def tool_call_start(cls, call_id : str, name: str, arguments: Dict[str, Any]) -> AgentEvent:
+        return cls(
+            type = AgentEventType.TOOL_CALL_START,
+            data = {
+                "call_id" : call_id,
+                "name" : name,
+                "arguments" : arguments
+            }
+    )
+
+    @classmethod
+    def tool_call_complete(cls, call_id : str, name: str, result: ToolResult) -> AgentEvent:
+        return cls(
+            type = AgentEventType.TOOL_CALL_COMPLETE,
+            data = {
+                "call_id" : call_id,
+                "name" : name,
+                "sucess" : result.success,
+                "output" : result.output,
+                "error" : result.error,
+                "metadata" : result.metadata,
+                "truncated" : result.truncated
+            }
+    )
+
 

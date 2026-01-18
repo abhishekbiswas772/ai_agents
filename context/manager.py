@@ -39,7 +39,7 @@ class ContextManager:
     def add_assistant_message(self, content: str) -> None:
         item = MessageItem(
             role='assistant',
-            content=content,
+            content=content or "",
             token_count = count_token(
                 text = content or "", 
                 model= self._model_name

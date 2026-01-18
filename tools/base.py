@@ -32,13 +32,15 @@ class ToolResult:
     output : str
     error : str | None = None 
     metadata : Dict[str, Any] = field(default_factory=dict)
+    truncated: bool = False
 
     @classmethod
-    def error_result(cls, error: str, output : str = ""):
+    def error_result(cls, error: str, output : str = "", **kwargs):
         return cls(
             success = False,
             output = output,
-            error = error
+            error = error,
+            **kwargs
         )
     
     @classmethod
@@ -110,8 +112,8 @@ class Tool(ABC):
                 "description" : self.description,
                 "parameters" : {
                     'type' : 'object',
-                    'properties' : json_schema('properties', {}),
-                    'required' : json_schema('required', [])
+                    'properties' : json_schema.get('properties', {}),
+                    'required' : json_schema.get('required', [])
                 }
             }
         

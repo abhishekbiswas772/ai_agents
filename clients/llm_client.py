@@ -1,7 +1,7 @@
 
 from typing import Any, AsyncGenerator, Dict, List
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
-from clients.response import TextDelta, TokenUsage, StreamEvent, StreamEventType
+from clients.response import TextDelta, TokenUsage, StreamEvent, StreamEventType, ToolCall, ToolCallDelta, parse_tool_call_arguments
 import asyncio
 
 
@@ -30,6 +30,7 @@ class LLMClient:
         response = await client.chat.completions.create(**kwargs)
         finish_reason : str | None = None 
         usage : TokenUsage | None = None 
+        tool_calls: Dict[int, Dict[str, Any]] = {}
 
         async for chunk in response:
             if hasattr(chunk, "usage") and chunk.usage:
@@ -52,7 +53,48 @@ class LLMClient:
                     type=StreamEventType.TEXT_DELTA,
                     text_delta=TextDelta(content=delta.content),
                 )
-                
+            if delta.tool_calls:
+                for tool_call_delta in delta.tool_calls:
+                    idx =  tool_call_delta.index
+                    if idx not in tool_calls:
+                        tool_calls[idx] = {
+                            'id': tool_call_delta.id or "",
+                            'name' : '',
+                            'arguments' : ''
+                        }
+
+                        if tool_call_delta.function:
+                            if tool_call_delta.function.name:
+                                tool_calls[idx]['name'] = tool_call_delta.function.name
+                                yield StreamEvent(
+                                    type=StreamEventType.TOOL_CALL_START,
+                                    tool_call_delta=ToolCallDelta(
+                                        call_id=tool_calls[idx]['id'],
+                                        name=tool_call_delta.function.name,
+                                    )
+                                )
+
+                        if tool_call_delta.function.arguments:
+                            tool_calls[idx]['arguments'] += tool_call_delta.function.arguments
+                            yield StreamEvent(
+                                type=StreamEventType.TOOL_CALL_DELTA,
+                                tool_call_delta=ToolCallDelta(
+                                    call_id=tool_calls[idx]['id'],
+                                    name=tool_call_delta.function.name,
+                                    arguments_delta=tool_call_delta.function.arguments
+                                )
+                            )
+
+        for idx, tc in tool_calls.items():
+            yield StreamEvent(
+                type=StreamEventType.TOOL_CALL_COMPLETE,
+                tool_call_delta=ToolCall(
+                    call_id=tc['id'],
+                    name=tc['name'],
+                    arguments=parse_tool_call_arguments(tc['arguments'])
+                )
+            ) 
+
         yield StreamEvent(
             type=StreamEventType.MESSAGE_COMPLETE,
             finish_reason=finish_reason,
@@ -66,8 +108,19 @@ class LLMClient:
         message = choice.message
         text_delta = None
         usage = None
+        tool_calls : List[ToolCall] = []
         if message.content:
             text_delta = TextDelta(content = message.content)
+
+        if message.tool_calls:
+            for tc in message.tool_calls:
+                tool_calls.append(ToolCall(
+                    call_id=tc.id,
+                    name=tc.function_name,
+                    arguments=parse_tool_call_arguments(tc.function.arguments)
+                ))
+
+
         if response.usage:
             usage = TokenUsage(
                 prompt_tokens=response.usage.prompt_tokens,
@@ -75,21 +128,46 @@ class LLMClient:
                 total_tokens=response.usage.total_tokens,
                 cached_tokens=response.usage.prompt_tokens_details.cached_tokens
             )
+
         return StreamEvent(
             type=StreamEventType.MESSAGE_COMPLETE,
             text_delta=text_delta,
             finish_reason=choice.finish_reason,
             usage=usage
         )
+    
+    def _build_tools(self, tools: List[Dict[str, Any]]):
+        return [
+            {
+                'type' : 'function',
+                'function' : {
+                    'name' : tool['name'],
+                    'description' : tool['description'],
+                    'parameters' : tool.get(
+                        "parameters",
+                        {
+                            'type' : 'object',
+                            'properties' : {}
+                        }
+                    )
+
+                }
+            }
+            for tool in tools
+        ]
             
 
-    async def chat_completion(self, messages: List[Dict[str, Any]], stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
+    async def chat_completion(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]] | None = None, stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
         client = self.get_client()
         kwargs : Dict[str, Any] = {
             "model" : "qwen/qwen3-1.7b",
             "messages" : messages,
             "stream" : stream,
         }
+        if tools:
+            kwargs['tools'] = self._build_tools(tools=tools)
+            kwargs['tool_choice'] = "auto"
+
         for attemps in range(self.max_retries + 1):
             try:
                 if stream:
