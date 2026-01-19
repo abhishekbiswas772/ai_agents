@@ -7,6 +7,7 @@ from rich.text import Text
 from rich.panel import Panel
 from rich.table import Table
 from rich import box
+from configs.configs import Config
 from utils.paths import display_path_rel_to_cwd
 from rich.syntax import Syntax
 import re
@@ -50,11 +51,12 @@ def get_console() -> Console:
 
 
 class TUI:
-    def __init__(self, console: Console | None = None, model_name: str = "gpt-3.5-turbo") -> None:
+    def __init__(self, config: Config, console: Console | None = None, model_name: str = "gpt-3.5-turbo") -> None:
         self.console = console or Console()
+        self.config = config
         self._assistance_stream_open = False
         self._tool_args_by_call_id: dict[str, dict[str, Any]] = {}
-        self.cwd = Path.cwd()
+        self.cwd = self.config.cwd
         self._max_block_tokens = 2500
         self.model_name = model_name
 
@@ -203,7 +205,7 @@ class TUI:
         truncated: bool
     ) -> None:
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
-        status_icon = '✓' if success else '✕'
+        status_icon = '✓ ' if success else '✕ '
         status_style = 'success' if success else 'error'
 
         title = Text.assemble(
@@ -212,7 +214,6 @@ class TUI:
             ("  ", "muted"),
             (f"#{call_id[:8]}", "muted")
         )
-        args = self._tool_args_by_call_id.get(call_id, {})
         primary_path = None
         blocks = []
 

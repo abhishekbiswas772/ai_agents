@@ -70,8 +70,7 @@ class ReadFileTool(Tool):
                 formatted_lines.append(f"{i : 6} | {line}")
 
             output = "\n".join(formatted_lines)
-            model = "gpt-4"  # Default model for token counting
-            token_count_val = count_token(output, model)
+            token_count_val = count_token(output)
             truncated = False
             if token_count_val > self.MAX_OUTPUT_TOKENS:
                 output  = truncate_text(

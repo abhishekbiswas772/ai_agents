@@ -5,30 +5,25 @@ import asyncio
 import os
 from dotenv import load_dotenv
 
+from configs.configs import Config
+
 
 
 class LLMClient:
-    def __init__(self) -> None:
+    def __init__(self, config: Config) -> None:
         self._client: AsyncOpenAI | None = None
         self.max_retries: int = 3
         self._think_buffer: str = ""
         self._in_think_tag: bool = False
+        self.config = config
 
     def get_client(self) -> AsyncOpenAI: #NOSONAR
         if self._client is None:
             load_dotenv()
-            #NOSONAR
-            # MODEL = os.getenv("MODEL")
-            API_KEY = os.getenv("API_KEY")
-            BASE_URL = os.getenv("BASE_URL")
             self._client = AsyncOpenAI(
-                api_key=API_KEY,
-                base_url=BASE_URL
+                api_key=self.config.api_key,
+                base_url=self.config.base_url
             )
-            #NOSONAR
-            # self._client = AsyncOpenAI(
-            #     api_key=os.getenv('OPENAI_API_KEY'),
-            # )
         return self._client
 
 
@@ -38,36 +33,6 @@ class LLMClient:
             await self._client.close()
             self._client = None
 
-    # def _filter_think_tags(self, content: str) -> str:
-    #     """Remove <think> tags and their content from the response."""
-    #     result = []
-    #     i = 0
-    #     while i < len(content):
-    #         if self._in_think_tag:
-    #             # Look for closing tag
-    #             close_idx = content.find('</think>', i)
-    #             if close_idx != -1:
-    #                 self._in_think_tag = False
-    #                 self._think_buffer = ""
-    #                 i = close_idx + 8  # Skip past </think>
-    #             else:
-    #                 # Still inside think tag, buffer everything
-    #                 self._think_buffer += content[i:]
-    #                 break
-    #         else:
-    #             # Look for opening tag
-    #             open_idx = content.find('<think>', i)
-    #             if open_idx != -1:
-    #                 # Add content before the tag
-    #                 result.append(content[i:open_idx])
-    #                 self._in_think_tag = True
-    #                 i = open_idx + 7  # Skip past <think>
-    #             else:
-    #                 # No more tags, add rest of content
-    #                 result.append(content[i:])
-    #                 break
-
-    #     return ''.join(result) 
 
     async def _stream_response(self, client : AsyncGenerator, kwargs : Dict[str, Any]) -> AsyncGenerator[StreamEvent, None]:
         response = await client.chat.completions.create(**kwargs)
@@ -208,7 +173,7 @@ class LLMClient:
     async def chat_completion(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]] | None = None, stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
         client = self.get_client()
         kwargs : Dict[str, Any] = {
-            "model" : "gpt-3.5-turbo",  
+            "model" : self.config.model_name,  
             "messages" : messages,
             "stream" : stream,
             "temperature": 0.1,  

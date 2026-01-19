@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+from configs.configs import Config
 from prompts.system import get_system_prompt
 from dataclasses import dataclass, field
 from utils.text import count_token
@@ -16,10 +17,6 @@ class MessageItem:
         result : Dict[str, Any] = {
             "role" : self.role,
         }
-
-        # For tool role, content is always required
-        # For assistant with tool_calls, content is optional (can be omitted if empty)
-        # For user and assistant without tool_calls, include content
         if self.role == "tool":
             result['content'] = self.content
         elif self.content:  # Only include if not empty
@@ -33,8 +30,9 @@ class MessageItem:
         return result
 
 class ContextManager:
-    def __init__(self) -> None:
-        base_prompt = get_system_prompt()
+    def __init__(self, config: Config) -> None:
+        self.config = config
+        base_prompt = get_system_prompt(config=self.config)
         tool_prompt = """
 
 # IMPORTANT: Tool Usage
@@ -52,10 +50,9 @@ User: "what's in config.json?"
 Assistant: [calls read_file tool with path="config.json", then describes it]
 
 CRITICAL: Do NOT respond with just text when you should be calling a tool. Always use the tools available to you."""
-
         self._system_prompt = base_prompt + tool_prompt
         self._messages : list[MessageItem] = []
-        self._model_name = "qwen/qwen3-1.7b"
+        self._model_name = self.config.model_name
 
 
     def add_user_message(self, content: str) -> None:

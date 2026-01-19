@@ -2,19 +2,20 @@ from pathlib import Path
 from typing import List
 from pydantic import BaseModel, Field
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class ModelConfig(BaseModel):
-    name : str = "gpt-3.0-turbo"
+    name : str = ""
     temperature : float = Field(default=1, ge=0.0, le=2.0)
     context_window : int = 256_000
-
 
 
 class Config(BaseModel):
     model : ModelConfig = Field(default_factory=ModelConfig)
     cwd: Path = Field(default_factory=Path.cwd)
     max_turns : int = 100
-    max_tool_output_tokens : int = 50_000
     developer_instructions : str | None = None 
     user_instructions : str | None = None 
     debug : bool = False

@@ -2,28 +2,24 @@ from __future__ import annotations
 from pathlib import Path
 from typing import AsyncGenerator, List
 from agents.events import AgentEvent, AgentEventType
-from clients.llm_client import LLMClient
+from agents.session import Session
 from clients.response import StreamEventType, ToolCall, ToolResultMessage
-from context.manager import ContextManager
-from tools.register_tools import create_default_registry
+from configs.configs import Config
 import json
 
 
 class Agent:
-    def __init__(self):
-        self.client = LLMClient() 
-        self.context_manager = ContextManager()
-        self.tool_registry = create_default_registry()
+    def __init__(self, config: Config):
+        self.config = config
+        self.session : Session | None = Session(self.config)
 
     async def run(self, message: str):
         yield AgentEvent.agent_start(message=message)
-
-        # Add explicit tool instruction for small models
         enhanced_message = f"""{message}
 
 To complete this task, you MUST use the available tools. Do not just provide text responses - call the appropriate tools first."""
 
-        self.context_manager.add_user_message(content=enhanced_message)
+        self.session.context_manager.add_user_message(content=enhanced_message)
         final_response = ""
         async for event in self._agentic_loop():
             yield event
@@ -35,18 +31,19 @@ To complete this task, you MUST use the available tools. Do not just provide tex
 
 
     async def _agentic_loop(self) -> AsyncGenerator[AgentEvent, None]: #NOSONAR
-        tool_schemas = self.tool_registry.get_schemas()
-        max_iterations = 10
+        tool_schemas = self.session.tool_registry.get_schemas()
+        max_iterations = self.config.max_turns
         iteration = 0
 
         while iteration < max_iterations:
             iteration += 1
+            _ = self.session.increment_turn()
             response_text = ""
             had_error = False
             tool_calls: List[ToolCall] = []
 
-            async for event in self.client.chat_completion(
-                messages=self.context_manager.get_messages(),
+            async for event in self.session.client.chat_completion(
+                messages=self.session.context_manager.get_messages(),
                 tools = tool_schemas if tool_schemas else None,
                 stream=True
             ):
@@ -80,7 +77,7 @@ To complete this task, you MUST use the available tools. Do not just provide tex
 
             if not had_error and (response_text or tool_calls):
                 content_to_add = response_text if response_text else (None if tool_calls else "") #NOSONAR
-                self.context_manager.add_assistant_message(
+                self.session.context_manager.add_assistant_message(
                     content=content_to_add,
                     tool_calls=tool_calls_for_context if tool_calls else None
                 )
@@ -88,7 +85,7 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                     yield AgentEvent.text_complete(content=response_text)
 
             if not tool_calls:
-                break
+                return
 
             tool_call_result : List[ToolResultMessage] = []
             for tool_call in tool_calls:
@@ -97,10 +94,10 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                     name=tool_call.name,
                     arguments=tool_call.arguments
                 )
-                result = await self.tool_registry.invoke(
+                result = await self.session.tool_registry.invoke(
                     tool_call.name,
                     tool_call.arguments,
-                    Path.cwd()
+                    self.config.cwd
                 )
 
                 yield AgentEvent.tool_call_complete(
@@ -116,7 +113,7 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                     )
                 )
             for tool_result in tool_call_result:
-                self.context_manager.add_tool_call_result(
+                self.session.context_manager.add_tool_call_result(
                     tool_result.tool_call_id,
                     tool_result.content
                 )
@@ -126,8 +123,8 @@ To complete this task, you MUST use the available tools. Do not just provide tex
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.client:
-            await self.client.close()
-            self.client = None 
+        if self.session.client:
+            await self.session.client.close()
+            self.session.client = None 
         
 

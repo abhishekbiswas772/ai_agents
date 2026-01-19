@@ -4,18 +4,20 @@ from agents.agents import Agent
 import asyncio
 import click
 from agents.events import AgentEventType
+from configs.configs import Config
 from ui.tui import TUI, get_console
 from configs.loader import load_config
 
 console = get_console()
 
 class CLI:
-    def __init__(self):
+    def __init__(self, config: Config):
         self.agent: Agent | None = None
-        self.tui = TUI(console=console)
+        self.config = config
+        self.tui = TUI(console=console, config=self.config)
 
     async def run_single(self, message: str) -> str | None:
-        async with Agent() as agent:
+        async with Agent(self.config) as agent:
             self.agent = agent
             return await self._process_message(message)
         
@@ -23,12 +25,12 @@ class CLI:
         self.tui.print_welcome(
             title="AI Agents", 
             lines=[
-                "mistralai/devstral-2512:free",
-                f"cwd: {Path.cwd()}",
+                f"model: {self.config.model_name}",
+                f"cwd: {self.config.cwd}",
                 'commands: /help, /config, /approval, /model, /exit'
             ]
         )
-        async with Agent() as agent:
+        async with Agent(self.config) as agent:
             self.agent = agent
             while True:
                 try:
@@ -48,7 +50,7 @@ class CLI:
         console.print("\n[dim]Goodbye![/dim]")
         
     def _get_tool_kind(self, tool_name : str) -> str | None:
-        tool = self.agent.tool_registry.get(tool_name)
+        tool = self.agent.session.tool_registry.get(tool_name)
         if not tool:
             return None
         return tool.kind.value.lower()
@@ -117,7 +119,7 @@ def main(prompt : str | None, cwd: Path | None):
         for error in errors:
             console.print(f"[error]Configuation Error: {error}[/error]")
         sys.exit(1)
-    cli = CLI()
+    cli = CLI(config)
     if prompt:
         result = asyncio.run(cli.run_single(prompt))
         if result is None:
