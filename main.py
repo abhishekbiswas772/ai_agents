@@ -5,6 +5,7 @@ import asyncio
 import click
 from agents.events import AgentEventType
 from ui.tui import TUI, get_console
+from configs.loader import load_config
 
 console = get_console()
 
@@ -22,7 +23,7 @@ class CLI:
         self.tui.print_welcome(
             title="AI Agents", 
             lines=[
-                f"qwen/qwen3-1.7b",
+                "mistralai/devstral-2512:free",
                 f"cwd: {Path.cwd()}",
                 'commands: /help, /config, /approval, /model, /exit'
             ]
@@ -58,7 +59,6 @@ class CLI:
         assistance_streaming = False
         final_response: str | None = None
         async for event in self.agent.run(message=message):
-            # print(event)  # Uncomment for debugging
             if event.type == AgentEventType.TEXT_DELTA:
                 content = event.data.get("content", "")
                 if not assistance_streaming:
@@ -80,7 +80,6 @@ class CLI:
                 call_id = event.data.get("call_id", "")
                 tool_name = event.data.get("name", "")
                 tool_kind = self._get_tool_kind(tool_name)
-                arguments = event.data.get("arguments", {})
                 success = event.data.get("success", False)
                 self.tui.tool_call_complete(
                     call_id,
@@ -103,7 +102,21 @@ class CLI:
 
 @click.command()
 @click.argument("prompt", required=False)
-def main(prompt : str | None):
+@click.option(
+    '--cwd', '-c', 
+    help="Current Working Directory", 
+    type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+def main(prompt : str | None, cwd: Path | None):
+    try:
+        config = load_config(cwd=cwd)
+    except Exception as e:
+        console.print(f"[error]Configuation Error: {e}[/error]")
+    errors = config.validate()
+    if errors:
+        for error in errors:
+            console.print(f"[error]Configuation Error: {error}[/error]")
+        sys.exit(1)
     cli = CLI()
     if prompt:
         result = asyncio.run(cli.run_single(prompt))

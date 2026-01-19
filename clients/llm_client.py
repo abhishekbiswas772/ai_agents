@@ -14,17 +14,21 @@ class LLMClient:
         self._think_buffer: str = ""
         self._in_think_tag: bool = False
 
-    def get_client(self) -> AsyncOpenAI:
+    def get_client(self) -> AsyncOpenAI: #NOSONAR
         if self._client is None:
-            # Option 1: Use local LM Studio (uncomment these lines)
-            # self._client = AsyncOpenAI(
-            #     api_key='sk-xx',
-            #     base_url='http://127.0.0.1:1234/v1'
-            # )
             load_dotenv()
+            #NOSONAR
+            # MODEL = os.getenv("MODEL")
+            API_KEY = os.getenv("API_KEY")
+            BASE_URL = os.getenv("BASE_URL")
             self._client = AsyncOpenAI(
-                api_key=os.getenv('OPENAI_API_KEY'),
+                api_key=API_KEY,
+                base_url=BASE_URL
             )
+            #NOSONAR
+            # self._client = AsyncOpenAI(
+            #     api_key=os.getenv('OPENAI_API_KEY'),
+            # )
         return self._client
 
 

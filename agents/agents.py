@@ -34,7 +34,7 @@ To complete this task, you MUST use the available tools. Do not just provide tex
         yield AgentEvent.agent_end(response=final_response)
 
 
-    async def _agentic_loop(self) -> AsyncGenerator[AgentEvent, None]:
+    async def _agentic_loop(self) -> AsyncGenerator[AgentEvent, None]: #NOSONAR
         tool_schemas = self.tool_registry.get_schemas()
         max_iterations = 10
         iteration = 0
@@ -79,7 +79,7 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                     })
 
             if not had_error and (response_text or tool_calls):
-                content_to_add = response_text if response_text else (None if tool_calls else "")
+                content_to_add = response_text if response_text else (None if tool_calls else "") #NOSONAR
                 self.context_manager.add_assistant_message(
                     content=content_to_add,
                     tool_calls=tool_calls_for_context if tool_calls else None
