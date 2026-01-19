@@ -30,3 +30,9 @@ def display_path_rel_to_cwd(path: str, cwd: str) -> str:
         except Exception as e:
             pass 
     return str(_resolve_base_path)
+
+
+def ensure_parent_directory(path: str | Path) -> Path:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path

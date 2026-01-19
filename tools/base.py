@@ -6,6 +6,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic.json_schema import model_json_schema
 from dataclasses import dataclass, field
 from pathlib import Path
+import difflib
 
 class ToolKind(str, Enum):
     READ = "read"
@@ -25,6 +26,38 @@ class ToolConformation:
     params : Dict[str, Any]
     tool_name : str
     description : str
+    diff: FileDiff | None = None 
+    affected_paths: list[Path] = field(default=list)
+    command : str | None = None 
+    is_dengerous : bool = False
+
+
+@dataclass
+class FileDiff:
+    path : Path
+    old_content: str 
+    new_content: str 
+    is_new_file: bool = False
+    is_delete: bool = False
+
+    def to_diff(self):
+        old_lines = self.old_content.splitlines(keepends=True)
+        new_lines = self.new_content.splitlines(keepends=True)
+        if old_lines and not old_lines[-1].endswith("\n"):
+            old_lines[-1] += '\n'
+        if new_lines and not new_lines[-1].endswith("\n"):
+            new_lines[-1] += '\n'
+
+        old_name = "/dev/null" if self.is_new_file else str(self.path)
+        new_name = "/dev/null" if self.is_delete else str(self.path)
+        diff = difflib.unified_diff(
+            old_lines,
+            new_lines,
+            fromfile=old_name,
+            tofile=new_name
+        )
+        return "".join(diff)
+        
 
 @dataclass
 class ToolResult:
@@ -33,6 +66,8 @@ class ToolResult:
     error : str | None = None 
     metadata : Dict[str, Any] = field(default_factory=dict)
     truncated: bool = False
+    diff : FileDiff | None = None 
+    exit_code: int | None = None
 
     @classmethod
     def error_result(cls, error: str, output : str = "", **kwargs):
