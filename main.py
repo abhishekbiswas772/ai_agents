@@ -10,6 +10,10 @@ from configs.loader import load_config
 
 console = get_console()
 
+def get_run_wizard():
+    from configs.wizard import run_wizard
+    return run_wizard
+
 class CLI:
     def __init__(self, config: Config):
         self.agent: Agent | None = None
@@ -32,22 +36,24 @@ class CLI:
         )
         async with Agent(self.config) as agent:
             self.agent = agent
-            while True:
-                try:
-                    user_input = console.input("\n[user]>[/user] ").strip()
-                    if not user_input:
-                        continue
+            try:
+                while True:
+                    try:
+                        user_input = console.input("\n[user]>[/user] ").strip()
+                        if not user_input:
+                            continue
 
-                    # Check for exit command
-                    if user_input.lower() in ['/exit', '/quit']:
+                        if user_input.lower() in ['/exit', '/quit', 'exit', 'quit']:
+                            break
+
+                        await self._process_message(user_input)
+                    except KeyboardInterrupt:
+                        console.print("\n[yellow]Interrupted by user[/yellow]")
                         break
-
-                    await self._process_message(user_input)
-                except KeyboardInterrupt:
-                    console.print("\n[dim] user /exit to quit[/dim]")
-                except EOFError:
-                    break
-        console.print("\n[dim]Goodbye![/dim]")
+                    except EOFError:
+                        break
+            finally:
+                console.print("\n[dim]Goodbye! 👋[/dim]")
         
     def _get_tool_kind(self, tool_name : str) -> str | None:
         tool = self.agent.session.tool_registry.get(tool_name)
@@ -107,30 +113,72 @@ class CLI:
 @click.command()
 @click.argument("prompt", required=False)
 @click.option(
-    '--cwd', '-c', 
-    help="Current Working Directory", 
+    '--cwd', '-c',
+    help="Current Working Directory",
     type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
-def main(prompt : str | None, cwd: Path | None):
+@click.option(
+    '--setup',
+    is_flag=True,
+    help="Run the interactive setup wizard"
+)
+@click.option(
+    '--version',
+    is_flag=True,
+    help="Show version and exit"
+)
+def main(prompt : str | None, cwd: Path | None, setup: bool = False, version: bool = False):
+    """DevMind AI - An intelligent coding agent for terminal-based development."""
+    if version:
+        console.print("[bold cyan]DevMind AI[/bold cyan] version [green]0.1.0[/green]")
+        return
+    
+    if setup:
+        run_wizard = get_run_wizard()
+        run_wizard()
+        return
+
+    env_path = Path.cwd() / ".env"
+    if not env_path.exists():
+        console.print("[yellow]No configuration found. Running setup wizard...[/yellow]\n")
+        run_wizard = get_run_wizard()
+        if not run_wizard():
+            console.print("[red]Setup cancelled. Exiting.[/red]")
+            sys.exit(1)
+
     try:
         config = load_config(cwd=cwd)
     except Exception as e:
-        console.print(f"[error]Configuation Error: {e}[/error]")
+        console.print(f"[error]Configuration Error: {e}[/error]")
+        console.print("[dim]Hint: Run 'devmind --setup' to reconfigure[/dim]")
+        sys.exit(1)
+
     errors = config.validate()
     if errors:
         for error in errors:
-            console.print(f"[error]Configuation Error: {error}[/error]")
+            console.print(f"[error]Configuration Error: {error}[/error]")
+        console.print("[dim]Hint: Run 'devmind --setup' to reconfigure[/dim]")
         sys.exit(1)
+
     cli = CLI(config)
-    if prompt:
-        result = asyncio.run(cli.run_single(prompt))
-        if result is None:
-            sys.exit(1)
-    else:
-        asyncio.run(cli.run_interactive())
-    
+    try:
+        if prompt:
+            result = asyncio.run(cli.run_single(prompt))
+            if result is None:
+                sys.exit(1)
+        else:
+            asyncio.run(cli.run_interactive())
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        console.print("[dim]Goodbye! 👋[/dim]")
+        sys.exit(0)
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted[/yellow]")
+        sys.exit(0)
 
     

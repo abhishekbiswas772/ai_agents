@@ -10,20 +10,76 @@ from configs.configs import Config
 
 
 class LLMClient:
+    """
+    Multi-provider LLM client supporting OpenAI, Claude, Gemini, and local models.
+
+    Supported providers:
+    - openai: OpenAI API (GPT-4, GPT-3.5, etc.)
+    - openrouter: OpenRouter API (multi-model gateway)
+    - claude: Anthropic Claude (via OpenAI-compatible endpoint)
+    - gemini: Google Gemini (via OpenAI-compatible endpoint)
+    - lmstudio: LM Studio (local models)
+    - ollama: Ollama (local models)
+    """
+
     def __init__(self, config: Config) -> None:
         self._client: AsyncOpenAI | None = None
         self.max_retries: int = 3
         self._think_buffer: str = ""
         self._in_think_tag: bool = False
         self.config = config
+        self.provider = config.provider_name
 
-    def get_client(self) -> AsyncOpenAI: #NOSONAR
+    def get_client(self) -> AsyncOpenAI:
+        """
+        Get or create the appropriate client based on the configured provider.
+
+        All providers use OpenAI-compatible APIs, so we use AsyncOpenAI client
+        but configure it with provider-specific base URLs and authentication.
+        """
         if self._client is None:
             load_dotenv()
-            self._client = AsyncOpenAI(
-                api_key=self.config.api_key,
-                base_url=self.config.base_url
-            )
+
+            api_key = self.config.api_key or "dummy"
+            base_url = self.config.base_url
+
+            # Provider-specific configuration
+            if self.provider in ["openai", "openrouter"]:
+                # OpenAI and OpenRouter use standard configuration
+                self._client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url=base_url
+                )
+            elif self.provider == "claude":
+                # Claude via OpenAI-compatible endpoint
+                # Note: For native Anthropic SDK support, use anthropic library
+                self._client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url=base_url or "https://api.anthropic.com"
+                )
+            elif self.provider == "gemini":
+                # Gemini via OpenAI-compatible endpoint
+                self._client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url=base_url or "https://generativelanguage.googleapis.com"
+                )
+            elif self.provider in ["lmstudio", "ollama"]:
+                # Local model providers
+                default_urls = {
+                    "lmstudio": "http://localhost:1234/v1",
+                    "ollama": "http://localhost:11434/v1"
+                }
+                self._client = AsyncOpenAI(
+                    api_key="dummy",  # Local models don't need API keys
+                    base_url=base_url or default_urls.get(self.provider)
+                )
+            else:
+                # Fallback: treat as OpenAI-compatible
+                self._client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url=base_url
+                )
+
         return self._client
 
 

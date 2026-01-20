@@ -6,14 +6,22 @@ from tomli import TOMLDecodeError
 from utils.errors import ConfigError
 import tomli
 import logging
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 CONFIG_FILE_NAME = "config.toml"
 AGENT_MD_FILE = "AGENT.md"
 
-def get_config_dir() -> Path:
-    return Path(user_config_dir('ai-agents'))
+def get_config_dir(create: bool = False) -> Path:
+    config_dir = Path(user_config_dir('ai-agents'))
+    if create and not config_dir.exists():
+        config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
 
 def get_system_path_config() -> Path:
     return get_config_dir() / CONFIG_FILE_NAME
@@ -59,7 +67,7 @@ def _merge_dict(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 
 
 def load_config(cwd: Path | None) -> Config:
-    cwd = cwd or Path.cwd() 
+    cwd = cwd or Path.cwd()
     system_path = get_system_path_config()
     config_dict : Dict[str, Any] = {}
     if system_path.is_file():
@@ -83,6 +91,15 @@ def load_config(cwd: Path | None) -> Config:
         agent_md_content = _get_agent_md_files(cwd)
         if agent_md_content:
             config_dict['developer_instructions'] = agent_md_content
+
+    model_from_env = os.environ.get("MODEL")
+    if model_from_env:
+        if "model" not in config_dict:
+            config_dict["model"] = {}
+        config_dict["model"]["name"] = model_from_env
+    provider_from_env = os.environ.get("PROVIDER")
+    if provider_from_env:
+        config_dict["provider"] = provider_from_env
 
     try:
         config = Config(**config_dict)

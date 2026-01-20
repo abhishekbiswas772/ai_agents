@@ -22,19 +22,25 @@ class Config(BaseModel):
     cwd: Path = Field(default_factory=Path.cwd)
     shell_enviorment : ShellEnviormentPolicy = Field(default_factory=ShellEnviormentPolicy)
     max_turns : int = 100
-    developer_instructions : str | None = None 
-    user_instructions : str | None = None 
+    developer_instructions : str | None = None
+    user_instructions : str | None = None
     debug : bool = False
+    provider : str = "openai"  # openai, claude, gemini, lmstudio, ollama, openrouter
 
 
     @property
     def api_key(self) -> str | None:
         return os.environ.get("API_KEY")
-    
+
 
     @property
     def base_url(self) -> str | None:
         return os.environ.get("BASE_URL")
+
+    @property
+    def provider_name(self) -> str:
+        """Get the provider name from environment or config."""
+        return os.environ.get("PROVIDER", self.provider).lower()
     
     @property
     def model_name(self) -> str:
