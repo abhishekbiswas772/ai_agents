@@ -81,7 +81,9 @@ class TUI:
             'write_file' : ['path', 'create_directories', 'content'],
             "edit_file" : ['path', 'replace_all', 'old_string', 'new_string'],
             "shell" : ['command', 'timeout', 'cwd'],
-            "list_dir" : ['path', 'include_hidden']
+            "list_dir" : ['path', 'include_hidden'],
+            "grep": ["path", "case_insensitive", "pattern"],
+            "glob": ["path", "pattern"],
         }
         preferred = _PREFERED_ORDER.get(tool_name, [])
         ordered : list[tuple[str, Any]] = []
@@ -106,6 +108,8 @@ class TUI:
                     line_count = len(value.splitlines()) or 0
                     byte_count = len(value.encode('utf-8', errors='replace'))
                     value = f"<{line_count}> lines * {byte_count} bytes"
+            if isinstance(value, bool):
+                value = str(value)
             table.add_row(key, value)
         return table
 
@@ -263,8 +267,6 @@ class TUI:
                         )
                     )
                 else:
-                    # Fallback if extraction fails - still try to show with highlighting
-                    # print(f"[DEBUG] Extraction failed, showing raw output")
                     output_display = truncate_text(
                         output,
                         self.model_name,
@@ -341,7 +343,61 @@ class TUI:
                 summary.append(f"{entries} entries")
 
             if summary:
-                blocks.append(Text(" * ".join(summary), ))
+                blocks.append(Text(" * ".join(summary), style="muted"))
+            output_display = truncate_text(
+                output,
+                self.config.model_name,
+                self._max_block_tokens
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True
+                )
+            )
+        elif tool_kind == "grep" and success:
+            matches = metadata.get("matches")
+            files_searched = metadata.get("files_searched")
+            summary = []
+            if isinstance(matches, int):
+                summary.append(f"{matches} matches")
+            if isinstance(files_searched, int):
+                summary.append(f"searched {files_searched} files")
+
+            if summary:
+                blocks.append(Text(" • ".join(summary), style="muted"))
+
+            output_display = truncate_text(
+                output, self.config.model_name, self._max_block_tokens
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True,
+                )
+            )
+        elif tool_name == "glob" and success: 
+            matches = metadata.get("matches")
+            if isinstance(matches, int):
+                blocks.append(Text(f"{matches} matches", style="muted"))
+
+            output_display = truncate_text(
+                output,
+                self.config.model_name,
+                self._max_block_tokens,
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True,
+                )
+            )
         else:
             if error and not success:
                 blocks.append(Text(error, style="error"))

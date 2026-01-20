@@ -3,7 +3,6 @@ from pathlib import Path
 import re
 from tools.base import Tool, ToolInvocation, ToolKind, ToolResult
 from pydantic import BaseModel, Field
-
 from utils.paths import is_binary_file, resolve_path
 
 

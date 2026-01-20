@@ -5,7 +5,7 @@ from utils.paths import resolve_path
 
 class ListDirParams(BaseModel):
     path : str = Field(".", description="Directory path to list (default: current directory)")
-    include_hidden : str = Field(False, description="Whether to include hidden files and directories (default: false)")
+    include_hidden : bool = Field(False, description="Whether to include hidden files and directories (default: false)")
 
 
 class ListDirTool(Tool):
