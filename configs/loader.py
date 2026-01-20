@@ -44,7 +44,7 @@ def _get_project_config(cwd: Path) -> Path | None:
         config_file = agent_dir / CONFIG_FILE_NAME
         if config_file.is_file():
             return config_file
-    return None 
+    return None
 
 
 def _get_agent_md_files(cwd: Path) -> Path | None:
@@ -54,7 +54,7 @@ def _get_agent_md_files(cwd: Path) -> Path | None:
         if agent_md_file.is_file():
             content = agent_md_file.read_text(encoding='utf-8')
             return content
-    return None 
+    return None
 
 def _merge_dict(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     result = base.copy()
@@ -108,4 +108,4 @@ def load_config(cwd: Path | None) -> Config:
     return config
 
 
-    
+

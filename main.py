@@ -24,10 +24,10 @@ class CLI:
         async with Agent(self.config) as agent:
             self.agent = agent
             return await self._process_message(message)
-        
+
     async def run_interactive(self) -> str | None:
         self.tui.print_welcome(
-            title="AI Agents", 
+            title="AI Agents",
             lines=[
                 f"model: {self.config.model_name}",
                 f"cwd: {self.config.cwd}",
@@ -54,7 +54,7 @@ class CLI:
                         break
             finally:
                 console.print("\n[dim]Goodbye! 👋[/dim]")
-        
+
     def _get_tool_kind(self, tool_name : str) -> str | None:
         tool = self.agent.session.tool_registry.get(tool_name)
         if not tool:
@@ -132,7 +132,7 @@ def main(prompt : str | None, cwd: Path | None, setup: bool = False, version: bo
     if version:
         console.print("[bold cyan]DevMind AI[/bold cyan] version [green]0.1.0[/green]")
         return
-    
+
     if setup:
         run_wizard = get_run_wizard()
         run_wizard()

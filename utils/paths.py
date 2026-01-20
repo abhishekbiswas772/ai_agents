@@ -16,7 +16,7 @@ def is_binary_file(path : str | Path) -> bool:
         return False
     except Exception as e:
         return False
-    
+
 
 def display_path_rel_to_cwd(path: str, cwd: str) -> str:
     try:
@@ -28,7 +28,7 @@ def display_path_rel_to_cwd(path: str, cwd: str) -> str:
         try:
             return str(_resolve_base_path.relative_to(cwd))
         except Exception as e:
-            pass 
+            pass
     return str(_resolve_base_path)
 
 

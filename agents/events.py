@@ -8,12 +8,12 @@ from tools.base import ToolResult
 class AgentEventType(Enum):
     AGENT_START = "agent_start"
     AGENT_END = "agent_end"
-    AGENT_ERROR = "agent_error" 
+    AGENT_ERROR = "agent_error"
     TEXT_DELTA  = "text_delta"
     TEXT_COMPLETE = "text_complete"
     TOOL_CALL_START = "tool_call_start"
     TOOL_CALL_COMPLETE = "tool_call_complete"
-    
+
 
 
 @dataclass
@@ -29,7 +29,7 @@ class AgentEvent:
                 "message" : message
             }
         )
-    
+
     @classmethod
     def agent_end(cls, response : str | None = None, usage: TokenUsage | None = None) -> AgentEvent:
         return cls(
@@ -39,7 +39,7 @@ class AgentEvent:
                 "usage" : usage.__dict__ if usage else None,
             }
         )
-    
+
     @classmethod
     def agent_error(cls, error : str, details: Dict[str, Any] | None = None) -> AgentEvent:
         return cls(
@@ -49,7 +49,7 @@ class AgentEvent:
                 "details" : details,
             }
         )
-    
+
     @classmethod
     def text_delta(cls, content : str) -> AgentEvent:
         return cls(
@@ -58,7 +58,7 @@ class AgentEvent:
                 "content" : content,
             }
         )
-    
+
     @classmethod
     def text_complete(cls, content : str) -> AgentEvent:
         return cls(
@@ -67,7 +67,7 @@ class AgentEvent:
                 "content" : content,
             }
         )
-    
+
 
     @classmethod
     def tool_call_start(cls, call_id : str, name: str, arguments: Dict[str, Any]) -> AgentEvent:

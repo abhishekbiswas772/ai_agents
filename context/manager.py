@@ -60,12 +60,12 @@ CRITICAL: Do NOT respond with just text when you should be calling a tool. Alway
             role='user',
             content=content,
             token_count = count_token(
-                text = content, 
+                text = content,
                 model= self._model_name
             )
         )
         self._messages.append(item)
-        
+
     def add_assistant_message(self, content: str | None, tool_calls: List[Dict[str, Any]] | None = None) -> None:
         item = MessageItem(
             role='assistant',
@@ -92,7 +92,7 @@ CRITICAL: Do NOT respond with just text when you should be calling a tool. Alway
         for item in self._messages:
             messages.append(item.to_dict())
         return messages
-    
+
     def add_tool_call_result(self, tool_call_id : str, content : str) -> None:
         item = MessageItem(
             role="tool",
@@ -101,5 +101,5 @@ CRITICAL: Do NOT respond with just text when you should be calling a tool. Alway
             token_count=count_token(content, self._model_name)
         )
         self._messages.append(item)
-    
-    
+
+

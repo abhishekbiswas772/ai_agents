@@ -125,10 +125,10 @@ class TUI:
                 display_arguments[key] = str(display_path_rel_to_cwd(val, self.cwd))
 
         panel = Panel(
-            self._render_args_table(tool_name, arguments) if display_arguments else Text('(no args)', style="muted"), 
-            title=title, 
+            self._render_args_table(tool_name, arguments) if display_arguments else Text('(no args)', style="muted"),
+            title=title,
             box = box.ROUNDED,
-            border_style=border_style, 
+            border_style=border_style,
             padding=(1, 2),
             subtitle=Text('runnning', style="muted"),
             title_align='left',
@@ -155,7 +155,7 @@ class TUI:
         if start_lines is None:
             return None
         return start_lines, "\n".join(code_lines)
-    
+
     def _guess_language(self, path: str | None) -> str:
         if not path:
             return "text"

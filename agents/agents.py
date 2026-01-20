@@ -126,7 +126,7 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                     tool_result.tool_call_id,
                     tool_result.content
                 )
-                
+
 
     def _track_tool_operation(self, tool_name: str, arguments: dict, result = None) -> None:
         """Track tool operations in conversation context for pronoun resolution."""
@@ -164,6 +164,6 @@ To complete this task, you MUST use the available tools. Do not just provide tex
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.session.client:
             await self.session.client.close()
-            self.session.client = None 
-        
+            self.session.client = None
+
 

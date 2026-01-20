@@ -14,20 +14,20 @@ class StreamEventType(str, Enum):
 @dataclass
 class ToolResultMessage:
     tool_call_id : str
-    content : str 
-    is_error : bool = False 
+    content : str
+    is_error : bool = False
 
 
     def to_openai_message(self) -> Dict[str, Any]:
         return {
             "role" : 'tool',
             "tool_call_id" : self.tool_call_id,
-            "content" : self.content 
+            "content" : self.content
         }
 
 @dataclass
 class TextDelta:
-    content : str 
+    content : str
     def __str__(self):
         return self.content
 
@@ -50,14 +50,14 @@ class TokenUsage:
 @dataclass
 class ToolCallDelta:
     call_id : str
-    name : str | None = None 
+    name : str | None = None
     arguments_delta : str = ""
 
 
 @dataclass
 class ToolCall:
     call_id : str
-    name : str | None = None 
+    name : str | None = None
     arguments : str = ""
 
 
@@ -66,8 +66,8 @@ class StreamEvent:
     type : StreamEventType
     text_delta : TextDelta | None = None
     error : str | None = None
-    finish_reason : str | None = None 
-    usage : TokenUsage | None = None 
+    finish_reason : str | None = None
+    usage : TokenUsage | None = None
     tool_call_delta : ToolCallDelta | None = None
     tool_call : ToolCall | None = None
 

@@ -26,10 +26,10 @@ class ReadFileTool(Tool):
         path = resolve_path(invocation.cwd, params.path)
         if not path.exists():
             return ToolResult.error_result(f"File not found: {path}")
-        
+
         if not path.is_file():
             return ToolResult.error_result(f"Path is not a file: {path}")
-        
+
         file_size = path.stat().st_size
         if file_size > self.MAX_FILE_SIZE:
             return ToolResult.error_result(
@@ -45,20 +45,20 @@ class ReadFileTool(Tool):
                 f"Cannot read binary file: {path.name} ({size_str}) "
                 f"This tool only reads text files."
             )
-        
+
         try:
             try:
                 content = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 content = path.read_text(encoding="latin-1")
-            
+
             lines = content.splitlines()
             total_lines = len(lines)
             if total_lines == 0:
                 return ToolResult.success_result("File is empty.", metadata = {
                     'lines' : 0
                 })
-            
+
             start_idx = max(0, params.offset - 1)
             if params.limit is not None:
                 end_idx = min(start_idx + params.limit, total_lines)

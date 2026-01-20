@@ -12,34 +12,34 @@ class ToolRegistery:
     def __init__(self):
         self._tools : Dict[str, Any] = {}
 
-    
+
     def register(self, tool: Tool) -> None:
         if tool.name in self._tools:
             logger.warning(f"Overwriting exiting tool: {tool.name}")
-        
+
         self._tools[tool.name] = tool
         logger.debug(f"Register tool: {tool.name}")
-    
+
     def unregister(self, name : str) -> bool:
         if name in self._tools:
             del self._tools[name]
             return True
         return False
-    
+
     def get_tools(self) -> list[Tool]:
         tools : list[Tool] = []
         for tool in self._tools.values():
             tools.append(tool)
         return tools
-    
+
     def get_schemas(self) -> List[Dict[str, Any]]:
         return [tool.to_openai_schema() for tool in self.get_tools()]
-    
+
     def get(self, name: str) -> Tool | None:
         if name in self._tools:
             return self._tools[name]
         return None
-    
+
     async def invoke(self, name: str, params: Dict[str, Any], cwd: Path) -> ToolResult:
         tool = self.get(name=name)
         if tool is None:
@@ -64,7 +64,7 @@ class ToolRegistery:
         )
         try:
             result = await tool.execute(invocation)
-            
+
         except Exception as e:
             logger.exception(f"Tool {name} raised unexcepted error")
             result = ToolResult.error_result(
@@ -74,7 +74,7 @@ class ToolRegistery:
                 }
             )
         return result
-        
+
 
 
 def create_default_registry(config: Config) -> ToolRegistery:

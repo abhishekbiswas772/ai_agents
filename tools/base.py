@@ -37,8 +37,8 @@ class ToolConfirmation:
 @dataclass
 class FileDiff:
     path : Path
-    old_content: str 
-    new_content: str 
+    old_content: str
+    new_content: str
     is_new_file: bool = False
     is_delete: bool = False
 
@@ -59,16 +59,16 @@ class FileDiff:
             tofile=new_name
         )
         return "".join(diff)
-        
+
 
 @dataclass
 class ToolResult:
     success : bool
     output : str
-    error : str | None = None 
+    error : str | None = None
     metadata : Dict[str, Any] = field(default_factory=dict)
     truncated: bool = False
-    diff : FileDiff | None = None 
+    diff : FileDiff | None = None
     exit_code: int | None = None
 
     @classmethod
@@ -79,7 +79,7 @@ class ToolResult:
             error = error,
             **kwargs
         )
-    
+
     @classmethod
     def success_result(cls, output: str, **kwargs: Any):
         return cls(
@@ -88,7 +88,7 @@ class ToolResult:
             error = None,
             **kwargs
         )
-    
+
     def to_model_output(self) -> str:
         if self.success:
             return self.output
@@ -106,7 +106,7 @@ class Tool(ABC):
     @property
     def schema(self) -> Dict[str, Any] | type['BaseModel']:
         raise NotImplementedError("Tool must define schema property or class attribute")
-    
+
     @abstractmethod
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
         pass
@@ -127,15 +127,15 @@ class Tool(ABC):
             except Exception as e:
                 return [str(e)]
         return []
-    
+
     def is_mutating(self, params: dict[str, Any]) -> bool:
         return self.kind in {
-            ToolKind.WRITE, 
-            ToolKind.SHELL, 
-            ToolKind.NETWORK, 
+            ToolKind.WRITE,
+            ToolKind.SHELL,
+            ToolKind.NETWORK,
             ToolKind.MEMORY
         }
-    
+
     async def get_confirmation(self, invocation: ToolInvocation) -> ToolConfirmation | None:
         if not self.is_mutating(invocation.params):
             return None
@@ -144,7 +144,7 @@ class Tool(ABC):
             description=f"Execute {self.name}",
             params=invocation.params
         )
-    
+
     def to_openai_schema(self) -> Dict[str, Any]:
         schema = self.schema
         if isinstance(schema, type) and issubclass(schema, BaseModel):
@@ -158,7 +158,7 @@ class Tool(ABC):
                     'required' : json_schema.get('required', [])
                 }
             }
-        
+
         if isinstance(schema, dict):
             result = {
                 "name" : self.name,
@@ -170,5 +170,5 @@ class Tool(ABC):
                 result['parameters'] = schema
 
             return result
-        
+
         raise ValueError(f"Invalid schema schema type for tool {self.name} : {self.schema}")

@@ -50,7 +50,7 @@ class EditTool(Tool):
             )
 
         return ToolResult.error_result(error_msg)
-    
+
     async def execute(self, invocation : ToolInvocation) -> ToolResult:
         params = EditParams(**invocation.params)
         path = resolve_path(invocation.cwd, params.path)
@@ -76,7 +76,7 @@ class EditTool(Tool):
                     "lines": line_count,
                 },
             )
-        old_content = path.read_text(encoding='utf-8') 
+        old_content = path.read_text(encoding='utf-8')
         if not params.old_string:
             return ToolResult.error_result(
                 "old_string is empty but file exists. Provide old_string to edit, or use write_file to overwrite."

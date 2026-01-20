@@ -83,7 +83,7 @@ class LLMClient:
         return self._client
 
 
-    #closing the clinet when not needed 
+    #closing the clinet when not needed
     async def close(self) -> None:
         if self._client:
             await self._client.close()
@@ -109,7 +109,7 @@ class LLMClient:
             if not chunk.choices:
                 continue
             choice = chunk.choices[0]
-            delta = choice.delta 
+            delta = choice.delta
 
             if choice.finish_reason:
                 finish_reason = choice.finish_reason
@@ -204,7 +204,7 @@ class LLMClient:
             finish_reason=choice.finish_reason,
             usage=usage
         )
-    
+
     def _build_tools(self, tools: List[Dict[str, Any]]):
         return [
             {
@@ -224,15 +224,15 @@ class LLMClient:
             }
             for tool in tools
         ]
-            
+
 
     async def chat_completion(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]] | None = None, stream: bool = True) -> AsyncGenerator[StreamEvent, None]:
         client = self.get_client()
         kwargs : Dict[str, Any] = {
-            "model" : self.config.model_name,  
+            "model" : self.config.model_name,
             "messages" : messages,
             "stream" : stream,
-            "temperature": 0.1,  
+            "temperature": 0.1,
             # "max_tokens": 4096,
         }
         if tools:
@@ -248,7 +248,7 @@ class LLMClient:
                 else:
                     event = await self._non_stream_response(client=client, kwargs=kwargs)
                     yield event
-                return 
+                return
 
             except RateLimitError as e:
                 # print(f"[DEBUG] Rate limit error: {e}")

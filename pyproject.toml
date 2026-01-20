@@ -82,8 +82,13 @@ target-version = ['py310']
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["agents", "clients", "configs", "context", "prompts", "tools", "ui", "utils"]
 
 [tool.mypy]
 python_version = "3.10"
