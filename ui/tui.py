@@ -80,7 +80,8 @@ class TUI:
             "read_file" : ['path', 'offset', 'limit'],
             'write_file' : ['path', 'create_directories', 'content'],
             "edit_file" : ['path', 'replace_all', 'old_string', 'new_string'],
-            "shell" : ['command', 'timeout', 'cwd']
+            "shell" : ['command', 'timeout', 'cwd'],
+            "list_dir" : ['path', 'include_hidden']
         }
         preferred = _PREFERED_ORDER.get(tool_name, [])
         ordered : list[tuple[str, Any]] = []
@@ -329,6 +330,18 @@ class TUI:
                     word_wrap=True,
                 )
             )
+        elif tool_name == "list_dir" and success:
+            entries = metadata.get("entries")
+            path = metadata.get("path")
+            summary = []
+            if isinstance(path, str):
+                summary.append(path)
+            
+            if isinstance(entries, int):
+                summary.append(f"{entries} entries")
+
+            if summary:
+                blocks.append(Text(" * ".join(summary), ))
         else:
             if error and not success:
                 blocks.append(Text(error, style="error"))

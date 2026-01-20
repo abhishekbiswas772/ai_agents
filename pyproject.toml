@@ -40,6 +40,8 @@ dependencies = [
     "httpx>=0.27.0",
     "httpx-sse>=0.4.0",
     "pyfiglet>=0.8.0",
+    "ruff>=0.14.13",
+    "setuptools>=80.9.0",
 ]
 
 [project.optional-dependencies]
@@ -59,10 +61,10 @@ Repository = "https://github.com/yourusername/devmind-ai"
 Issues = "https://github.com/yourusername/devmind-ai/issues"
 
 [project.scripts]
-devmind = "main:main"
+devmind = "devmind.cli:main"
 
 [tool.setuptools]
-packages = ["agents", "clients", "configs", "context", "prompts", "tools", "tools.builtin", "ui", "utils"]
+packages = ["devmind", "agents", "clients", "configs", "context", "prompts", "tools", "tools.builtin", "ui", "utils"]
 
 [tool.setuptools.package-data]
 "*" = ["*.md", "*.txt"]
