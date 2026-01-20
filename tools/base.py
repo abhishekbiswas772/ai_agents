@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import difflib
 
+from configs.configs import Config
+
 class ToolKind(str, Enum):
     READ = "read"
     WRITE = "write"
@@ -22,14 +24,14 @@ class ToolInvocation:
     cwd : Path
 
 @dataclass
-class ToolConformation:
+class ToolConfirmation:
     params : Dict[str, Any]
     tool_name : str
     description : str
-    diff: FileDiff | None = None 
+    diff: FileDiff | None = None
     affected_paths: list[Path] = field(default=list)
-    command : str | None = None 
-    is_dengerous : bool = False
+    command : str | None = None
+    is_dangerous : bool = False
 
 
 @dataclass
@@ -98,8 +100,8 @@ class Tool(ABC):
     description : str = "Base tool"
     kind : ToolKind = ToolKind.READ
 
-    def __init__(self):
-        pass
+    def __init__(self, config: Config):
+        self.config = config
 
     @property
     def schema(self) -> Dict[str, Any] | type['BaseModel']:
@@ -134,10 +136,10 @@ class Tool(ABC):
             ToolKind.MEMORY
         }
     
-    async def get_conformation(self, invocation: ToolInvocation) -> ToolInvocation | None:
+    async def get_confirmation(self, invocation: ToolInvocation) -> ToolConfirmation | None:
         if not self.is_mutating(invocation.params):
-            return None 
-        return ToolConformation(
+            return None
+        return ToolConfirmation(
             tool_name=self.name,
             description=f"Execute {self.name}",
             params=invocation.params

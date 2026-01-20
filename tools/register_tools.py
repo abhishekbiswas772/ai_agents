@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 from tools.base import Tool, ToolInvocation, ToolResult
 import logging
-from tools.builtin import ReadFileTool, get_all_buildin_tools
+from tools.builtin import get_all_buildin_tools
+from configs.configs import Config
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,8 @@ class ToolRegistery:
         
 
 
-def create_default_registry() -> ToolRegistery:
+def create_default_registry(config: Config) -> ToolRegistery:
     registry =  ToolRegistery()
     for tool_class in get_all_buildin_tools():
-        registry.register(tool_class())
+        registry.register(tool_class(config))
     return registry

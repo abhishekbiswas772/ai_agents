@@ -75,7 +75,7 @@ class ReadFileTool(Tool):
             if token_count_val > self.MAX_OUTPUT_TOKENS:
                 output  = truncate_text(
                     output,
-                    model,
+                    "gpt-4",
                     self.MAX_OUTPUT_TOKENS,
                     suffix=f"\n...[truncated {total_lines} total lines]"
                 )

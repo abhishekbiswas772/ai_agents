@@ -15,7 +15,14 @@ class Agent:
 
     async def run(self, message: str):
         yield AgentEvent.agent_start(message=message)
-        enhanced_message = f"""{message}
+
+        # Add conversation context to help with pronoun resolution
+        context_summary = self.session.conversation_context.get_context_summary()
+        context_hint = ""
+        if context_summary:
+            context_hint = f"\n\n[CONTEXT: {context_summary}]"
+
+        enhanced_message = f"""{message}{context_hint}
 
 To complete this task, you MUST use the available tools. Do not just provide text responses - call the appropriate tools first."""
 
@@ -54,10 +61,8 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                         response_text += content
                         yield AgentEvent.text_delta(content=content)
                 elif event.type == StreamEventType.TOOL_CALL_COMPLETE:
-                    # print(f"[AGENT DEBUG] Tool call complete: {event.tool_call}")
                     if event.tool_call:
                         tool_calls.append(event.tool_call)
-                        # print(f"[AGENT DEBUG] Added tool call: {event.tool_call.name}")
                 elif event.type == StreamEventType.ERROR:
                     had_error = True
                     yield AgentEvent.agent_error(error=event.error or "unknown error occured")
@@ -100,6 +105,10 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                     self.config.cwd
                 )
 
+                # Track file operations in conversation context
+                if result.success:
+                    self._track_tool_operation(tool_call.name, tool_call.arguments, result)
+
                 yield AgentEvent.tool_call_complete(
                     tool_call.call_id,
                     tool_call.name,
@@ -119,9 +128,39 @@ To complete this task, you MUST use the available tools. Do not just provide tex
                 )
                 
 
+    def _track_tool_operation(self, tool_name: str, arguments: dict, result = None) -> None:
+        """Track tool operations in conversation context for pronoun resolution."""
+        from pathlib import Path
+        _ = result  # Unused but kept for API consistency
+
+        # Track file write operations
+        if tool_name == "write_file" and "path" in arguments:
+            file_path = Path(arguments["path"])
+            if not file_path.is_absolute():
+                file_path = self.config.cwd / file_path
+            self.session.conversation_context.track_file_write(file_path)
+
+        # Track file edit operations
+        elif tool_name == "edit_file" and "path" in arguments:
+            file_path = Path(arguments["path"])
+            if not file_path.is_absolute():
+                file_path = self.config.cwd / file_path
+            self.session.conversation_context.track_file_edit(file_path)
+
+        # Track file read operations
+        elif tool_name == "read_file" and "path" in arguments:
+            file_path = Path(arguments["path"])
+            if not file_path.is_absolute():
+                file_path = self.config.cwd / file_path
+            self.session.conversation_context.track_file_read(file_path)
+
+        # Track shell commands
+        elif tool_name == "shell" and "command" in arguments:
+            self.session.conversation_context.track_command(arguments["command"])
+
     async def __aenter__(self) -> Agent:
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.session.client:
             await self.session.client.close()

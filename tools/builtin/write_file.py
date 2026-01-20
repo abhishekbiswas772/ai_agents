@@ -1,4 +1,4 @@
-from tools.base import FileDiff, Tool, ToolKind, ToolResult, ToolInvocation, ToolConformation
+from tools.base import FileDiff, Tool, ToolKind, ToolResult, ToolInvocation, ToolConfirmation
 from pydantic import BaseModel, Field
 from utils.paths import ensure_parent_directory, resolve_path
 
@@ -8,7 +8,7 @@ class WriteFileParams(BaseModel):
     create_directories : bool = Field(True, description="Create Parent directories if they doesnot exit")
 
 class WriteFileTool(Tool):
-    name : str = "write_tool"
+    name : str = "write_file"
     description = description = (
         "Write content to a file. Creates the file if it doesn't exist, "
         "or overwrites if it does. Parent directories are created automatically. "
@@ -20,14 +20,14 @@ class WriteFileTool(Tool):
 
 
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
-        params = WriteFileParams(**invocation)
+        params = WriteFileParams(**invocation.params)
         path = resolve_path(invocation.cwd, params.path)
         is_new_file = not path.exists()
         old_content : str = ""
         if not is_new_file:
             try:
                 old_content = path.read_text(encoding='utf-8')
-            except:
+            except Exception:
                 pass
         try:
             if params.create_directories:

@@ -6,16 +6,11 @@ from clients.response import TokenUsage
 from tools.base import ToolResult
 
 class AgentEventType(Enum):
-    #AGENT LIFECYCLE
     AGENT_START = "agent_start"
     AGENT_END = "agent_end"
-    AGENT_ERROR = "agent_error"
-
-    # TEXT Streaming 
+    AGENT_ERROR = "agent_error" 
     TEXT_DELTA  = "text_delta"
     TEXT_COMPLETE = "text_complete"
-
-    #tool call
     TOOL_CALL_START = "tool_call_start"
     TOOL_CALL_COMPLETE = "tool_call_complete"
     
@@ -96,7 +91,9 @@ class AgentEvent:
                 "output" : result.output,
                 "error" : result.error,
                 "metadata" : result.metadata,
-                "truncated" : result.truncated
+                "diff" : result.diff.to_diff() if result.diff else None,
+                "truncated" : result.truncated,
+                "exit_code" : result.exit_code
             }
     )
 
