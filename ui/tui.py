@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List
 from rich.console import Console, Group
 from rich.theme import Theme
 from rich.rule import Rule
@@ -76,7 +76,7 @@ class TUI:
         self._assistance_stream_open = False
 
     def _ordered_args(self, tool_name: str, args: dict[str, Any]) -> list[tuple]:
-        _PREFERED_ORDER = {
+        _PREFERED_ORDER : Dict[str, List[str]] = {
             "read_file" : ['path', 'offset', 'limit'],
             'write_file' : ['path', 'create_directories', 'content'],
             "edit_file" : ['path', 'replace_all', 'old_string', 'new_string'],
@@ -84,6 +84,8 @@ class TUI:
             "list_dir" : ['path', 'include_hidden'],
             "grep": ["path", "case_insensitive", "pattern"],
             "glob": ["path", "pattern"],
+            "todos": ["id", "action", "content"],
+            "memory": ["action", "key", "value"],
         }
         preferred = _PREFERED_ORDER.get(tool_name, [])
         ordered : list[tuple[str, Any]] = []
@@ -385,6 +387,100 @@ class TUI:
             if isinstance(matches, int):
                 blocks.append(Text(f"{matches} matches", style="muted"))
 
+            output_display = truncate_text(
+                output,
+                self.config.model_name,
+                self._max_block_tokens,
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True,
+                )
+            )
+        elif tool_name == "web_search" and success:
+            results = metadata.get("results")
+            query = args.get("query")
+            summary = []
+            if isinstance(query, str):
+                summary.append(query)
+            if isinstance(results, int):
+                summary.append(f"{results} results")
+
+            if summary:
+                blocks.append(Text(" • ".join(summary), style="muted"))
+
+            output_display = truncate_text(
+                output,
+                self.config.model_name,
+                self._max_block_tokens,
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True,
+                )
+            )
+        elif tool_name == "web_fetch" and success:
+            status_code = metadata.get("status_code")
+            content_length = metadata.get("content_length")
+            url = args.get("url")
+            summary = []
+            if isinstance(status_code, int):
+                summary.append(str(status_code))
+            if isinstance(content_length, int):
+                summary.append(f"{content_length} bytes")
+            if isinstance(url, str):
+                summary.append(url)
+
+            if summary:
+                blocks.append(Text(" • ".join(summary), style="muted"))
+
+            output_display = truncate_text(
+                output,
+                self.config.model_name,
+                self._max_block_tokens,
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True,
+                )
+            )
+        elif tool_name == "todos" and success:
+            output_display = truncate_text(
+                output,
+                self.config.model_name,
+                self._max_block_tokens,
+            )
+            blocks.append(
+                Syntax(
+                    output_display,
+                    "text",
+                    theme="monokai",
+                    word_wrap=True,
+                )
+            )
+        elif tool_name == "memory" and success:
+            action = args.get("action")
+            key = args.get("key")
+            found = metadata.get("found")
+            summary = []
+            if isinstance(action, str) and action:
+                summary.append(action)
+            if isinstance(key, str) and key:
+                summary.append(key)
+            if isinstance(found, bool):
+                summary.append("found" if found else "missing")
+
+            if summary:
+                blocks.append(Text(" • ".join(summary), style="muted"))
             output_display = truncate_text(
                 output,
                 self.config.model_name,

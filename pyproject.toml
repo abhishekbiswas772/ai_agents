@@ -42,6 +42,7 @@ dependencies = [
     "pyfiglet>=0.8.0",
     "ruff>=0.14.13",
     "setuptools>=80.9.0",
+    "ddgs>=9.10.0",
 ]
 
 [project.optional-dependencies]
