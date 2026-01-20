@@ -112,6 +112,8 @@ class TUI:
                     value = f"<{line_count}> lines * {byte_count} bytes"
             if isinstance(value, bool):
                 value = str(value)
+            else:
+                value = str(value)
             table.add_row(key, value)
         return table
 

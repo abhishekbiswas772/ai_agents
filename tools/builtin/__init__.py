@@ -8,7 +8,7 @@ from tools.builtin.list_dir import ListDirTool
 from tools.builtin.glob import GlobTool
 from tools.builtin.grep import GrepTool
 from tools.builtin.web_fetch import WebFetchTool
-from tools.builtin.web_search import WebSearchParams
+from tools.builtin.web_search import WebSearchTool
 from tools.builtin.memory import MemoryTool
 from tools.builtin.todo import TodosTool
 
@@ -21,7 +21,7 @@ __all__ = [
     "GlobTool",
     "ListDirTool",
     "WebFetchTool",
-    "WebSearchParams",
+    "WebSearchTool",
     "MemoryTool",
     "TodosTool"
 ]
@@ -37,7 +37,7 @@ def get_all_buildin_tools() -> List[Tool]:
         GlobTool,
         ListDirTool,
         WebFetchTool,
-        WebSearchParams,
+        WebSearchTool,
         TodosTool,
         MemoryTool
     ]

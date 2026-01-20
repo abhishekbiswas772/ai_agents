@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 from configs.configs import Config
-from platformdirs import user_config_dir
+from platformdirs import user_config_dir, user_data_dir
 from tomli import TOMLDecodeError
 from utils.errors import ConfigError
 import tomli
@@ -22,6 +22,9 @@ def get_config_dir(create: bool = False) -> Path:
     if create and not config_dir.exists():
         config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir
+
+def get_data_dir() -> Path:
+    return Path(user_data_dir("ai-agent"))
 
 def get_system_path_config() -> Path:
     return get_config_dir() / CONFIG_FILE_NAME
