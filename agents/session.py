@@ -78,7 +78,7 @@ class Session:
         self.updated_at = datetime.now()
         return self._turn_count
     
-    def _load_memory(self) -> dict:
+    def _load_memory(self) -> str | None:
         data_dir = get_data_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
         path = data_dir / "user_memory.json"
