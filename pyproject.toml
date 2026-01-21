@@ -43,6 +43,7 @@ dependencies = [
     "ruff>=0.14.13",
     "setuptools>=80.9.0",
     "ddgs>=9.10.0",
+    "fastmcp>=2.14.3",
 ]
 
 [project.optional-dependencies]
