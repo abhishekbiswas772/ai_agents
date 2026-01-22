@@ -201,8 +201,12 @@ class Config(BaseModel):
         errors: list[str] = []
 
         if not self.api_key:
+            env_var = self.model.api_key_env
             errors.append(
-                f"No API key found. Set {self.model.api_key_env} or API_KEY environment variable"
+                f"No API key found. Set the {env_var} environment variable:\n"
+                f"  Step 1: export {env_var}=<your-api-key>\n"
+                f"  Step 2: Run 'byom' again\n\n"
+                f"To reconfigure, run: byom --reset"
             )
 
         if not self.cwd.exists():

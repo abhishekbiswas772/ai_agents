@@ -344,10 +344,17 @@ class CLI:
     is_flag=True,
     help="Show version and exit",
 )
+@click.option(
+    "--reset",
+    "-r",
+    is_flag=True,
+    help="Reset configuration and run setup wizard again",
+)
 def main(
     prompt: str | None,
     cwd: Path | None,
     version: bool,
+    reset: bool,
 ):
     """
     BYOM AI Agents - Bring Your Own Model AI Coding Assistant
@@ -361,7 +368,18 @@ def main(
         return
 
     # Check for first run and show setup wizard
-    if is_first_run():
+    if reset:
+        # Delete existing config to trigger setup wizard
+        from byom.config.loader import get_config_dir, CONFIG_FILE_NAME
+        config_file = get_config_dir() / CONFIG_FILE_NAME
+        if config_file.exists():
+            config_file.unlink()
+            console.print("[dim]Existing configuration deleted.[/dim]\n")
+        show_welcome_banner(first_run=True)
+        if not run_setup_wizard():
+            console.print("[error]Setup cancelled[/error]")
+            sys.exit(1)
+    elif is_first_run():
         show_welcome_banner(first_run=True)
         if not run_setup_wizard():
             console.print("[error]Setup cancelled[/error]")
