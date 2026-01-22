@@ -4,7 +4,7 @@ BYOM AI Agents - Bring Your Own Model AI Coding Agent
 A terminal-based AI coding assistant that works with any LLM provider.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __author__ = "Abhishek"
 __package_name__ = "byom-ai-agents"
 
