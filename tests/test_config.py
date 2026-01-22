@@ -22,13 +22,15 @@ def test_config_creation():
 def test_config_validate(monkeypatch):
     """Test config validation"""
     monkeypatch.setenv("API_KEY", "test-key")
-    config = Config(
-        model=ModelConfig(name="test-model"),
-        cwd=Path("/tmp"),
-        approval=ApprovalPolicy.AUTO
-    )
-    errors = config.validate_config()
-    assert len(errors) == 0  # Should be valid
+    # Use a temporary directory that exists on all platforms
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = Config(
+            model=ModelConfig(name="test-model"),
+            cwd=Path(tmpdir),
+            approval=ApprovalPolicy.AUTO
+        )
+        errors = config.validate_config()
+        assert len(errors) == 0  # Should be valid
 
 
 def test_config_invalid(monkeypatch):
@@ -36,7 +38,7 @@ def test_config_invalid(monkeypatch):
     monkeypatch.setenv("API_KEY", "test-key")
     config = Config(
         model=ModelConfig(name=""),  # Invalid empty name, but validate_config doesn't check this
-        cwd=Path("/nonexistent"),
+        cwd=Path("/nonexistent"),  # This will always fail validation
         approval=ApprovalPolicy.AUTO
     )
     errors = config.validate_config()
@@ -45,9 +47,11 @@ def test_config_invalid(monkeypatch):
 
 def test_load_config():
     """Test loading config from environment"""
-    # This might require setting env vars, but for basic test, assume default
+    # Test loading config with a specific cwd without changing the actual working directory
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.chdir(tmpdir)
-        config = load_config(cwd=Path(tmpdir))
+        tmpdir_path = Path(tmpdir)
+        config = load_config(cwd=tmpdir_path)
         assert config is not None
         assert isinstance(config, Config)
+        # cwd gets resolved to canonical path, so compare resolved paths
+        assert config.cwd == tmpdir_path.resolve()

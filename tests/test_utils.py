@@ -36,5 +36,9 @@ def test_resolve_path():
     assert path.is_absolute()
     if platform.system() == "Darwin":  # macOS
         assert str(path) == "/private/tmp/test.txt"
-    else:  # Linux
+    elif platform.system() == "Linux":
         assert str(path) == "/tmp/test.txt"
+    elif platform.system() == "Windows":
+        # On Windows, /tmp gets resolved to something like C:\tmp\test.txt
+        assert str(path).endswith("tmp\\test.txt") or str(path).endswith("tmp/test.txt")
+        assert path.is_absolute()
