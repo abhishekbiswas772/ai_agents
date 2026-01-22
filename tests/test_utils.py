@@ -30,7 +30,11 @@ def test_truncate_text():
 
 def test_resolve_path():
     """Test path resolution"""
+    import platform
     cwd = Path("/tmp")
     path = resolve_path(cwd, "test.txt")
     assert path.is_absolute()
-    assert str(path) == "/private/tmp/test.txt"  # On macOS /tmp is /private/tmp
+    if platform.system() == "Darwin":  # macOS
+        assert str(path) == "/private/tmp/test.txt"
+    else:  # Linux
+        assert str(path) == "/tmp/test.txt"

@@ -19,8 +19,9 @@ def test_config_creation():
     assert config.approval == ApprovalPolicy.AUTO
 
 
-def test_config_validate():
+def test_config_validate(monkeypatch):
     """Test config validation"""
+    monkeypatch.setenv("API_KEY", "test-key")
     config = Config(
         model=ModelConfig(name="test-model"),
         cwd=Path("/tmp"),
@@ -30,15 +31,16 @@ def test_config_validate():
     assert len(errors) == 0  # Should be valid
 
 
-def test_config_invalid():
+def test_config_invalid(monkeypatch):
     """Test config with invalid data"""
+    monkeypatch.setenv("API_KEY", "test-key")
     config = Config(
-        model=ModelConfig(name=""),  # Invalid
+        model=ModelConfig(name=""),  # Invalid empty name, but validate_config doesn't check this
         cwd=Path("/nonexistent"),
         approval=ApprovalPolicy.AUTO
     )
     errors = config.validate_config()
-    assert len(errors) > 0
+    assert len(errors) > 0  # Should have cwd error
 
 
 def test_load_config():

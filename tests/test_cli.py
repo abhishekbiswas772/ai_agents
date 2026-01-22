@@ -14,9 +14,9 @@ def test_main_version():
 
 
 def test_main_no_args():
-    """Test main with no args (starts interactive mode)"""
+    """Test main with no args (starts interactive mode with valid config)"""
     runner = CliRunner()
-    # Since it's interactive, it will show the banner and exit
-    result = runner.invoke(main, [], input="\n")  # Send newline to exit
+    result = runner.invoke(main, [], env={"API_KEY": "test-key"})
+    # Should start interactive mode successfully
     assert result.exit_code == 0
     assert "BYOM AI Agents" in result.output
