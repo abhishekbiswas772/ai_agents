@@ -280,30 +280,27 @@ hooks_enabled = false
 
     console.print(f"[green]✓[/green] Configuration saved to: {config_file}\n")
 
-    # Environment setup instructions
-    if preset.requires_api_key and not api_key:
+    # Environment setup instructions (only if key not saved to config)
+    if preset.requires_api_key and "api.api_key" not in config_data and not api_key:
         import platform
         is_windows = platform.system() == "Windows"
         
         console.print("\n[bold yellow]⚠️  API Key Setup Required[/bold yellow]")
-        console.print(f"\n[bold]Set your API key as an environment variable:[/bold]\n")
+        console.print(f"\n[bold]You didn't enter an API key. You must set it as an environment variable:[/bold]\n")
         
         if is_windows:
             console.print(f"  [bold]Windows (Command Prompt):[/bold]")
             console.print(f"  [cyan]setx {preset.api_key_env_var} \"your-api-key\"[/cyan]")
             console.print(f"\n  [bold]Windows (PowerShell):[/bold]")
             console.print(f"  [cyan]$env:{preset.api_key_env_var} = \"your-api-key\"[/cyan]")
-            console.print(f"  [dim]For permanent: Add to System Environment Variables[/dim]\n")
         else:
             console.print(f"  [cyan]export {preset.api_key_env_var}=<your-api-key>[/cyan]\n")
             console.print("[bold]Add to your shell profile for persistence:[/bold]")
-            console.print("  • For Bash: Add to [cyan]~/.bashrc[/cyan]")
-            console.print("  • For Zsh: Add to [cyan]~/.zshrc[/cyan]")
-            console.print("  • For Fish: Add to [cyan]~/.config/fish/config.fish[/cyan]\n")
+            # ... (shell profile instructions)
 
-        console.print("[dim]For development: Create a .env file in your project root[/dim]")
-        console.print(f"[dim]  echo '{preset.api_key_env_var}=<your-key>' >> .env[/dim]")
-        console.print("[dim]  echo '.env' >> .gitignore  # Important![/dim]\n")
+        console.print("\n[dim]Or run 'byom --reset' to try setup again and paste your key.[/dim]\n")
+    elif preset.requires_api_key:
+        console.print("\n[green]✓[/green] API Key configured successfully.\n")
 
     # Special instructions for local providers
     if preset_name == "ollama":
