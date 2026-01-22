@@ -272,14 +272,24 @@ hooks_enabled = false
 
     # Environment setup instructions
     if preset.requires_api_key and not api_key:
+        import platform
+        is_windows = platform.system() == "Windows"
+        
         console.print("\n[bold yellow]⚠️  API Key Setup Required[/bold yellow]")
         console.print(f"\n[bold]Set your API key as an environment variable:[/bold]\n")
-        console.print(f"  [cyan]export {preset.api_key_env_var}=<your-api-key>[/cyan]\n")
-
-        console.print("[bold]Add to your shell profile for persistence:[/bold]")
-        console.print("  • For Bash: Add to [cyan]~/.bashrc[/cyan]")
-        console.print("  • For Zsh: Add to [cyan]~/.zshrc[/cyan]")
-        console.print("  • For Fish: Add to [cyan]~/.config/fish/config.fish[/cyan]\n")
+        
+        if is_windows:
+            console.print(f"  [bold]Windows (Command Prompt):[/bold]")
+            console.print(f"  [cyan]setx {preset.api_key_env_var} \"your-api-key\"[/cyan]")
+            console.print(f"\n  [bold]Windows (PowerShell):[/bold]")
+            console.print(f"  [cyan]$env:{preset.api_key_env_var} = \"your-api-key\"[/cyan]")
+            console.print(f"  [dim]For permanent: Add to System Environment Variables[/dim]\n")
+        else:
+            console.print(f"  [cyan]export {preset.api_key_env_var}=<your-api-key>[/cyan]\n")
+            console.print("[bold]Add to your shell profile for persistence:[/bold]")
+            console.print("  • For Bash: Add to [cyan]~/.bashrc[/cyan]")
+            console.print("  • For Zsh: Add to [cyan]~/.zshrc[/cyan]")
+            console.print("  • For Fish: Add to [cyan]~/.config/fish/config.fish[/cyan]\n")
 
         console.print("[dim]For development: Create a .env file in your project root[/dim]")
         console.print(f"[dim]  echo '{preset.api_key_env_var}=<your-key>' >> .env[/dim]")
