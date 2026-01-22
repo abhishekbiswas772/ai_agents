@@ -1,9 +1,13 @@
-name: Publish to PyPI
+name: Release to PyPI
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-and-publish:
@@ -17,16 +21,44 @@ jobs:
       with:
         python-version: "3.11"
 
-    - name: Install build dependencies
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Extract version from tag
+      if: github.event_name == 'push'
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Verify version matches pyproject.toml
+      if: github.event_name == 'push'
       run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+        PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | cut -d '"' -f 2)
+        if [ "${{ steps.get_version.outputs.VERSION }}" != "$PYPROJECT_VERSION" ]; then
+          echo "Error: Tag version (${{ steps.get_version.outputs.VERSION }}) does not match pyproject.toml version ($PYPROJECT_VERSION)"
+          exit 1
+        fi
+
+    - name: Install dependencies
+      run: uv sync --all-extras
+
+    - name: Run tests
+      run: uv run pytest tests/ -v
+      continue-on-error: true
 
     - name: Build package
-      run: python -m build
+      run: uv build
 
     - name: Check package
-      run: twine check dist/*
+      run: uv run twine check dist/*
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
+        generate_release_notes: true
+        draft: false
+        prerelease: false
 
     - name: Publish to Test PyPI
       if: github.event_name == 'workflow_dispatch'
@@ -34,12 +66,12 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
       run: |
-        twine upload --repository testpypi dist/*
+        uv run twine upload --repository testpypi dist/*
 
     - name: Publish to PyPI
-      if: github.event_name == 'release'
+      if: github.event_name == 'push'
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
-        twine upload dist/*
+        uv run twine upload dist/*

@@ -1,7 +1,0 @@
-include README.md
-include LICENSE
-include requirements.txt
-include .env.example
-recursive-include prompts *.md
-recursive-include configs *.json
-recursive-include tools *.py

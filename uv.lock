@@ -228,6 +228,66 @@ wheels = [
 ]
 
 [[package]]
+name = "byom-ai-agents"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "anthropic" },
+    { name = "click" },
+    { name = "ddgs" },
+    { name = "fastmcp" },
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "openai" },
+    { name = "platformdirs" },
+    { name = "pydantic" },
+    { name = "pyfiglet" },
+    { name = "python-dotenv" },
+    { name = "rich" },
+    { name = "ruff" },
+    { name = "setuptools" },
+    { name = "tiktoken" },
+    { name = "tomli" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "black" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
+    { name = "click", specifier = ">=8.3.1" },
+    { name = "ddgs", specifier = ">=9.10.0" },
+    { name = "fastmcp", specifier = ">=2.14.3" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "httpx-sse", specifier = ">=0.4.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "openai", specifier = ">=1.0.0" },
+    { name = "platformdirs", specifier = ">=4.5.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyfiglet", specifier = ">=0.8.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "rich", specifier = ">=14.2.0" },
+    { name = "ruff", specifier = ">=0.14.13" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
+    { name = "setuptools", specifier = ">=80.9.0" },
+    { name = "tiktoken", specifier = ">=0.12.0" },
+    { name = "tomli", specifier = ">=2.4.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "cachetools"
 version = "6.2.4"
 source = { registry = "https://pypi.org/simple" }
@@ -647,66 +707,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/07/76/8dc0323d1577037ab
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/0e/d4b7d6a8df5074cf67bc14adead39955b0bf847c947ff6cad0bb527887f4/ddgs-9.10.0-py3-none-any.whl", hash = "sha256:81233d79309836eb03e7df2a0d2697adc83c47c342713132c0ba618f1f2c6eee", size = 40311, upload-time = "2025-12-17T23:30:13.606Z" },
 ]
-
-[[package]]
-name = "devmind-ai"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "anthropic" },
-    { name = "click" },
-    { name = "ddgs" },
-    { name = "fastmcp" },
-    { name = "httpx" },
-    { name = "httpx-sse" },
-    { name = "openai" },
-    { name = "platformdirs" },
-    { name = "pydantic" },
-    { name = "pyfiglet" },
-    { name = "python-dotenv" },
-    { name = "rich" },
-    { name = "ruff" },
-    { name = "setuptools" },
-    { name = "tiktoken" },
-    { name = "tomli" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "black" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", specifier = ">=0.40.0" },
-    { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
-    { name = "click", specifier = ">=8.3.1" },
-    { name = "ddgs", specifier = ">=9.10.0" },
-    { name = "fastmcp", specifier = ">=2.14.3" },
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "httpx-sse", specifier = ">=0.4.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "openai", specifier = ">=1.0.0" },
-    { name = "platformdirs", specifier = ">=4.5.1" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pyfiglet", specifier = ">=0.8.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "python-dotenv", specifier = ">=1.2.1" },
-    { name = "rich", specifier = ">=14.2.0" },
-    { name = "ruff", specifier = ">=0.14.13" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "setuptools", specifier = ">=80.9.0" },
-    { name = "tiktoken", specifier = ">=0.12.0" },
-    { name = "tomli", specifier = ">=2.4.0" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "diskcache"

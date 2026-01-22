@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "devmind-ai"
+name = "byom-ai-agents"
 version = "0.1.0"
-description = "DevMind - An intelligent AI coding agent for terminal-based development assistance"
+description = "BYOM AI Agents - A terminal-based AI coding agent that works with any LLM provider (OpenAI, Anthropic, Google, etc.)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -13,9 +13,9 @@ license = {text = "MIT"}
 authors = [
     {name = "Abhishek"}
 ]
-keywords = ["ai", "coding-assistant", "cli", "agent", "developer-tools", "openai", "claude", "gemini"]
+keywords = ["ai", "byom", "coding-assistant", "cli", "agent", "developer-tools", "openai", "claude", "gemini", "llm"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -24,7 +24,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development",
     "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Utilities",
+    "Environment :: Console",
 ]
 
 dependencies = [
@@ -57,16 +59,17 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/devmind-ai"
-Documentation = "https://github.com/yourusername/devmind-ai#readme"
-Repository = "https://github.com/yourusername/devmind-ai"
-Issues = "https://github.com/yourusername/devmind-ai/issues"
+Homepage = "https://github.com/abhishek-dev/byom-ai-agents"
+Documentation = "https://github.com/abhishek-dev/byom-ai-agents#readme"
+Repository = "https://github.com/abhishek-dev/byom-ai-agents"
+Issues = "https://github.com/abhishek-dev/byom-ai-agents/issues"
 
 [project.scripts]
-devmind = "devmind.cli:main"
+byom = "byom.cli:main"
 
 [tool.setuptools]
-packages = ["devmind", "agents", "clients", "configs", "context", "prompts", "tools", "tools.builtin", "ui", "utils"]
+packages = {"find" = {"where" = ["src"]}}
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "*" = ["*.md", "*.txt"]
@@ -92,7 +95,7 @@ select = ["E", "F", "I", "N", "W"]
 ignore = []
 
 [tool.ruff.lint.isort]
-known-first-party = ["agents", "clients", "configs", "context", "prompts", "tools", "ui", "utils"]
+known-first-party = ["byom"]
 
 [tool.mypy]
 python_version = "3.10"

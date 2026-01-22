@@ -1,0 +1,252 @@
+"""
+BYOM AI Agents - Setup and First-Run Experience
+
+Handles welcome banner, setup wizard, and configuration initialization.
+"""
+from pathlib import Path
+import os
+import pyfiglet
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt, Confirm
+from rich.table import Table
+from rich import box
+
+from byom import __version__
+from byom.config.loader import get_config_dir, get_data_dir
+
+console = Console()
+
+
+def show_welcome_banner(first_run: bool = False):
+    """
+    Show BYOM AI Agents banner
+
+    Args:
+        first_run: If True, show full setup banner. Otherwise show compact version.
+    """
+    banner = pyfiglet.figlet_format("BYOM AI", font="slant")
+
+    if first_run:
+        welcome_text = f"""[bright_cyan]{banner}[/bright_cyan]
+[bold bright_white]Bring Your Own Model AI Coding Agent[/bold bright_white]
+[dim]Version {__version__}[/dim]
+
+Welcome! Let's get you set up with your preferred AI provider.
+        """
+        console.print(Panel(
+            welcome_text,
+            title="[bold]Welcome to BYOM AI Agents[/bold]",
+            border_style="bright_cyan",
+            box=box.DOUBLE,
+        ))
+    else:
+        # Compact banner for subsequent runs
+        console.print(f"[bright_cyan]{banner}[/bright_cyan]", highlight=False)
+        console.print(f"[dim]v{__version__}[/dim]\n")
+
+
+def run_setup_wizard() -> bool:
+    """
+    Run interactive setup wizard for first-time configuration
+
+    Returns:
+        bool: True if setup completed successfully, False if cancelled
+    """
+    console.print("\n[bold]Setup Wizard[/bold]", style="bright_yellow")
+    console.print("This wizard will help you configure BYOM AI Agents.\n")
+
+    # Step 1: Choose provider
+    console.print("[bold]Step 1: Choose Your LLM Provider[/bold]\n")
+
+    provider_table = Table(show_header=True, box=box.SIMPLE)
+    provider_table.add_column("Option", style="cyan", width=10)
+    provider_table.add_column("Provider", style="green")
+    provider_table.add_column("Models", style="yellow")
+
+    provider_table.add_row(
+        "1",
+        "OpenAI",
+        "gpt-4, gpt-4-turbo, gpt-3.5-turbo"
+    )
+    provider_table.add_row(
+        "2",
+        "Anthropic",
+        "claude-3.5-sonnet, claude-3-opus, claude-3-haiku"
+    )
+    provider_table.add_row(
+        "3",
+        "OpenAI-Compatible",
+        "Local servers (Ollama, LM Studio), OpenRouter, etc."
+    )
+    provider_table.add_row(
+        "4",
+        "Google",
+        "gemini-pro, gemini-1.5-pro"
+    )
+
+    console.print(provider_table)
+    console.print()
+
+    provider_choice = Prompt.ask(
+        "Select your provider",
+        choices=["1", "2", "3", "4"],
+        default="1"
+    )
+
+    provider_map = {
+        "1": ("openai", "gpt-4-turbo"),
+        "2": ("anthropic", "claude-3-5-sonnet-20241022"),
+        "3": ("openai", "local-model"),
+        "4": ("google", "gemini-pro"),
+    }
+
+    provider, default_model = provider_map[provider_choice]
+
+    # Step 2: API Configuration
+    console.print(f"\n[bold]Step 2: Configure {provider.title()} API[/bold]\n")
+
+    api_key = None
+    base_url = None
+
+    if provider == "openai":
+        api_key = Prompt.ask(
+            "Enter your OpenAI API key",
+            password=True,
+            default=os.environ.get("OPENAI_API_KEY", "")
+        )
+        model = Prompt.ask(
+            "Enter model name",
+            default=default_model
+        )
+    elif provider == "anthropic":
+        api_key = Prompt.ask(
+            "Enter your Anthropic API key",
+            password=True,
+            default=os.environ.get("ANTHROPIC_API_KEY", "")
+        )
+        model = Prompt.ask(
+            "Enter model name",
+            default=default_model
+        )
+    elif provider == "openai":  # OpenAI-compatible
+        base_url = Prompt.ask(
+            "Enter base URL",
+            default="http://localhost:11434/v1"  # Ollama default
+        )
+        api_key = Prompt.ask(
+            "Enter API key (press Enter to skip for local servers)",
+            password=True,
+            default="not-needed"
+        )
+        model = Prompt.ask(
+            "Enter model name",
+            default="llama3"
+        )
+    else:  # Google
+        api_key = Prompt.ask(
+            "Enter your Google API key",
+            password=True,
+            default=os.environ.get("GOOGLE_API_KEY", "")
+        )
+        model = Prompt.ask(
+            "Enter model name",
+            default=default_model
+        )
+
+    # Step 3: Create configuration
+    console.print(f"\n[bold]Step 3: Finalizing Configuration[/bold]\n")
+
+    # Create directories
+    config_dir = get_config_dir()
+    data_dir = get_data_dir()
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[dim]Config directory: {config_dir}[/dim]")
+    console.print(f"[dim]Data directory: {data_dir}[/dim]\n")
+
+    # Generate config.toml
+    config_content = f"""# BYOM AI Agents Configuration
+# Generated by setup wizard
+
+[model]
+name = "{model}"
+provider = "{provider}"
+temperature = 0.7
+max_tokens = 4096
+
+[api]
+"""
+
+    if api_key and api_key != "not-needed":
+        env_var = f"{provider.upper()}_API_KEY"
+        config_content += f"""# Store your API key in environment variable: {env_var}
+# Or uncomment the line below (not recommended for security)
+# api_key = "{api_key}"
+"""
+        # Set environment variable hint
+        console.print(f"[yellow]Remember to set environment variable:[/yellow]")
+        console.print(f"  export {env_var}={api_key}\n")
+
+    if base_url:
+        config_content += f"""base_url = "{base_url}"
+"""
+
+    config_content += """
+[behavior]
+approval_policy = "auto"
+max_turns = 25
+auto_save = true
+
+[hooks]
+enabled = false
+
+[mcp]
+enabled = true
+"""
+
+    # Write config file
+    config_file = config_dir / "config.toml"
+    config_file.write_text(config_content)
+
+    console.print(f"[green]✓[/green] Configuration saved to: {config_file}")
+
+    # Create .env file hint
+    env_file = Path.cwd() / ".env"
+    if not env_file.exists() and api_key and api_key != "not-needed":
+        create_env = Confirm.ask(
+            "\nCreate .env file with API key in current directory?",
+            default=False
+        )
+        if create_env:
+            env_var = f"{provider.upper()}_API_KEY"
+            env_content = f"{env_var}={api_key}\n"
+            env_file.write_text(env_content)
+            console.print(f"[green]✓[/green] .env file created: {env_file}")
+            console.print("[yellow]Remember to add .env to your .gitignore![/yellow]")
+
+    console.print("\n[green bold]Setup complete! 🎉[/green bold]")
+    console.print("\nYou can now start using BYOM AI Agents:")
+    console.print("  [cyan]byom[/cyan]              # Start interactive mode")
+    console.print("  [cyan]byom 'your question'[/cyan]  # Single query mode\n")
+
+    return True
+
+
+def ensure_directories():
+    """Ensure all required directories exist"""
+    config_dir = get_config_dir()
+    data_dir = get_data_dir()
+
+    # Create main directories
+    config_dir.mkdir(parents=True, exist_ok=True)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create subdirectories
+    (data_dir / "sessions").mkdir(exist_ok=True)
+    (data_dir / "checkpoints").mkdir(exist_ok=True)
+    (data_dir / "todos").mkdir(exist_ok=True)
+    (data_dir / "memory").mkdir(exist_ok=True)
+    (data_dir / "logs").mkdir(exist_ok=True)
