@@ -210,10 +210,18 @@ class Config(BaseModel):
         errors: list[str] = []
 
         if not self.api_key:
+            import platform
             env_var = self.model.api_key_env
+            is_windows = platform.system() == "Windows"
+            
+            if is_windows:
+                set_cmd = f'setx {env_var} "your-api-key"'
+            else:
+                set_cmd = f'export {env_var}=<your-api-key>'
+            
             errors.append(
                 f"No API key found. Set the {env_var} environment variable:\n"
-                f"  Step 1: export {env_var}=<your-api-key>\n"
+                f"  Step 1: {set_cmd}\n"
                 f"  Step 2: Run 'byom' again\n\n"
                 f"To reconfigure, run: byom --reset"
             )
