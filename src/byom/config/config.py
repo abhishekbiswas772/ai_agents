@@ -28,6 +28,11 @@ class ThinkingConfig(BaseModel):
     budget_tokens: int | None = None  # For Claude extended thinking
 
 
+class ApiConfig(BaseModel):
+    """API configuration for base URL and other API settings."""
+    base_url: str | None = None
+
+
 class ModelConfig(BaseModel):
     """Model configuration with BYOM support."""
     name: str = "gpt-4o-mini"
@@ -141,6 +146,7 @@ class Config(BaseModel):
         default_factory=ShellEnvironmentPolicy
     )
     ui: UIConfig = Field(default_factory=UIConfig)
+    api: ApiConfig = Field(default_factory=ApiConfig)
     
     hooks_enabled: bool = False
     hooks: list[HookConfig] = Field(default_factory=list)
@@ -168,7 +174,10 @@ class Config(BaseModel):
 
     @property
     def base_url(self) -> str | None:
-        """Get base URL from environment."""
+        """Get base URL from config file or environment."""
+        # Priority: config file value > specific env var > generic BASE_URL env var
+        if self.api.base_url:
+            return self.api.base_url
         return os.environ.get(self.model.base_url_env) or os.environ.get("BASE_URL")
 
     @property
