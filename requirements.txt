@@ -1,6 +1,0 @@
-openai
-click
-rich
-tiktoken
-pydantic
-python-dotenv

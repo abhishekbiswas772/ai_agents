@@ -55,3 +55,7 @@ celerybeat-schedule
 *.tmp
 *.bak
 *.swp
+.ai-agents/
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md
