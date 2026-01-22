@@ -13,10 +13,11 @@ def test_main_version():
     assert "Version: 0.1.0" in result.output
 
 
-def test_main_no_args():
+def test_main_no_args(monkeypatch):
     """Test main with no args (starts interactive mode with valid config)"""
+    monkeypatch.setenv("API_KEY", "test-key")
     runner = CliRunner()
-    result = runner.invoke(main, [], env={"API_KEY": "test-key"})
+    result = runner.invoke(main, [])
     # Should start interactive mode successfully
     assert result.exit_code == 0
     assert "BYOM AI Agents" in result.output
