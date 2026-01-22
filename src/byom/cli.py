@@ -58,7 +58,7 @@ class CLI:
 
             while True:
                 try:
-                    user_input = console.input("\n[user]>[/user] ").strip()
+                    user_input = console.input("\n[bright_blue bold]💬 You >[/bright_blue bold] ").strip()
                     if not user_input:
                         continue
 
@@ -70,11 +70,11 @@ class CLI:
 
                     await self._process_message(user_input)
                 except KeyboardInterrupt:
-                    console.print("\n[dim]Use /exit to quit[/dim]")
+                    console.print("\n[dim]💡 Tip: Use /exit to quit[/dim]")
                 except EOFError:
                     break
 
-        console.print("\n[dim]Goodbye![/dim]")
+        console.print("\n[bright_cyan]👋 Goodbye! Thanks for using BYOM AI Agents.[/bright_cyan]")
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
         """Get tool kind for display purposes"""
@@ -106,9 +106,18 @@ class CLI:
                 if assistant_streaming:
                     self.tui.end_assistant()
                     assistant_streaming = False
+            elif event.type == AgentEventType.AGENT_END:
+                # Show token usage if available
+                usage_data = event.data.get("usage")
+                if usage_data and self.config.ui.show_token_usage:
+                    self.tui.show_token_usage(
+                        usage_data.get("input_tokens", 0),
+                        usage_data.get("output_tokens", 0),
+                        usage_data.get("total_tokens", 0),
+                    )
             elif event.type == AgentEventType.AGENT_ERROR:
                 error = event.data.get("error", "Unknown error")
-                console.print(f"\n[error]Error: {error}[/error]")
+                console.print(f"\n[error]❌ Error: {error}[/error]")
             elif event.type == AgentEventType.TOOL_CALL_START:
                 tool_name = event.data.get("name", "unknown")
                 tool_kind = self._get_tool_kind(tool_name)
@@ -150,15 +159,15 @@ class CLI:
         elif command == "/clear":
             self.agent.session.context_manager.clear()
             self.agent.session.loop_detector.clear()
-            console.print("[success]Conversation cleared[/success]")
+            console.print("[success]🧹 Conversation cleared[/success]")
         elif command == "/config":
-            console.print("\n[bold]Current Configuration[/bold]")
-            console.print(f"  Model: {self.config.model_name}")
-            console.print(f"  Temperature: {self.config.temperature}")
-            console.print(f"  Approval: {self.config.approval.value}")
-            console.print(f"  Working Dir: {self.config.cwd}")
-            console.print(f"  Max Turns: {self.config.max_turns}")
-            console.print(f"  Hooks Enabled: {self.config.hooks_enabled}")
+            console.print("\n[bold bright_cyan]⚙️  Current Configuration[/bold bright_cyan]")
+            console.print(f"  🤖 Model: [highlight]{self.config.model_name}[/highlight]")
+            console.print(f"  🌡️  Temperature: [highlight]{self.config.temperature}[/highlight]")
+            console.print(f"  ✅ Approval: [highlight]{self.config.approval.value}[/highlight]")
+            console.print(f"  📂 Working Dir: [muted]{self.config.cwd}[/muted]")
+            console.print(f"  🔄 Max Turns: [highlight]{self.config.max_turns}[/highlight]")
+            console.print(f"  🎣 Hooks Enabled: [highlight]{self.config.hooks_enabled}[/highlight]")
         elif cmd_name == "/model":
             if cmd_args:
                 self.config.model_name = cmd_args

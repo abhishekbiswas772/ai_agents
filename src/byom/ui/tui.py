@@ -21,27 +21,32 @@ from byom.utils.text import truncate_text
 AGENT_THEME = Theme(
     {
         # General
-        "info": "cyan",
-        "warning": "yellow",
-        "error": "bright_red bold",
-        "success": "green",
-        "dim": "dim",
-        "muted": "grey50",
-        "border": "grey35",
-        "highlight": "bold cyan",
+        "info": "dodger_blue2",
+        "warning": "yellow1",
+        "error": "red1 bold",
+        "success": "green3 bold",
+        "dim": "grey50",
+        "muted": "grey58",
+        "border": "grey42",
+        "highlight": "bold bright_cyan",
         # Roles
         "user": "bright_blue bold",
         "assistant": "bright_white",
+        "assistant.header": "bright_cyan bold",
         # Tools
-        "tool": "bright_magenta bold",
+        "tool": "magenta bold",
         "tool.read": "cyan",
-        "tool.write": "yellow",
-        "tool.shell": "magenta",
-        "tool.network": "bright_blue",
-        "tool.memory": "green",
+        "tool.write": "yellow1",
+        "tool.shell": "medium_purple1",
+        "tool.network": "dodger_blue1",
+        "tool.memory": "green3",
         "tool.mcp": "bright_cyan",
         # Code / blocks
-        "code": "white",
+        "code": "grey93",
+        # Status
+        "status.running": "yellow1",
+        "status.done": "green3",
+        "status.failed": "red1",
     }
 )
 
@@ -71,11 +76,17 @@ class TUI:
 
     def begin_assistant(self) -> None:
         self.console.print()
-        self.console.print(Rule(Text("Assistant", style="assistant")))
+        self.console.print(
+            Rule(
+                Text("🤖 Assistant", style="assistant.header"),
+                style="border",
+            )
+        )
         self._assistant_stream_open = True
 
     def end_assistant(self) -> None:
         if self._assistant_stream_open:
+            self.console.print()
             self.console.print()
         self._assistant_stream_open = False
 
@@ -123,6 +134,8 @@ class TUI:
 
             if isinstance(value, bool):
                 value = str(value)
+            else:
+                value = str(value)
 
             table.add_row(key, value)
 
@@ -138,8 +151,19 @@ class TUI:
         self._tool_args_by_call_id[call_id] = arguments
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
 
+        # Better icons based on tool kind
+        icon_map = {
+            "read": "📖",
+            "write": "✏️",
+            "shell": "⚡",
+            "network": "🌐",
+            "memory": "💾",
+            "mcp": "🔌",
+        }
+        icon = icon_map.get(tool_kind, "🔧")
+
         title = Text.assemble(
-            ("⏺ ", "muted"),
+            (f"{icon} ", "tool"),
             (name, "tool"),
             ("  ", "muted"),
             (f"#{call_id[:8]}", "muted"),
@@ -162,7 +186,7 @@ class TUI:
             ),
             title=title,
             title_align="left",
-            subtitle=Text("running", style="muted"),
+            subtitle=Text("⏳ running...", style="status.running"),
             subtitle_align="right",
             border_style=border_style,
             box=box.ROUNDED,
@@ -231,17 +255,34 @@ class TUI:
         }.get(suffix, "text")
 
     def print_welcome(self, title: str, lines: list[str]) -> None:
-        body = "\n".join(lines)
+        # Create a richer welcome display
+        content = []
+
+        for line in lines:
+            if line.startswith("version:"):
+                content.append(Text(f"📦 {line}", style="info"))
+            elif line.startswith("model:"):
+                content.append(Text(f"🤖 {line}", style="highlight"))
+            elif line.startswith("cwd:"):
+                content.append(Text(f"📂 {line}", style="muted"))
+            elif line.startswith("commands:"):
+                content.append(Text(f"⌨️  {line}", style="dim"))
+            else:
+                content.append(Text(line, style="code"))
+
         self.console.print(
             Panel(
-                Text(body, style="code"),
-                title=Text(title, style="highlight"),
+                Group(*content),
+                title=Text(f"✨ {title}", style="highlight"),
                 title_align="left",
-                border_style="border",
-                box=box.ROUNDED,
+                subtitle=Text("Type your message or /help for commands", style="muted"),
+                subtitle_align="right",
+                border_style="highlight",
+                box=box.DOUBLE,
                 padding=(1, 2),
             )
         )
+        self.console.print()
 
     def tool_call_complete(
         self,
@@ -257,14 +298,27 @@ class TUI:
         exit_code: int | None,
     ) -> None:
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
-        status_icon = "✓" if success else "✗"
+        status_icon = "✅" if success else "❌"
         status_style = "success" if success else "error"
 
+        # Better icons based on tool kind
+        icon_map = {
+            "read": "📖",
+            "write": "✏️",
+            "shell": "⚡",
+            "network": "🌐",
+            "memory": "💾",
+            "mcp": "🔌",
+        }
+        icon = icon_map.get(tool_kind, "🔧")
+
         title = Text.assemble(
-            (f"{status_icon} ", status_style),
+            (f"{icon} ", "tool"),
             (name, "tool"),
             ("  ", "muted"),
             (f"#{call_id[:8]}", "muted"),
+            ("  ", "muted"),
+            (f"{status_icon}", status_style),
         )
 
         args = self._tool_args_by_call_id.get(call_id, {})
@@ -536,7 +590,10 @@ class TUI:
                 blocks.append(Text("(no output)", style="muted"))
 
         if truncated:
-            blocks.append(Text("note: tool output was truncated", style="warning"))
+            blocks.append(Text("⚠️  Output was truncated", style="warning"))
+
+        subtitle_text = "✓ done" if success else "✗ failed"
+        subtitle_style = "status.done" if success else "status.failed"
 
         panel = Panel(
             Group(
@@ -544,7 +601,7 @@ class TUI:
             ),
             title=title,
             title_align="left",
-            subtitle=Text("done" if success else "failed", style=status_style),
+            subtitle=Text(subtitle_text, style=subtitle_style),
             subtitle_align="right",
             border_style=border_style,
             box=box.ROUNDED,
@@ -554,15 +611,35 @@ class TUI:
         self.console.print(panel)
 
     def handle_confirmation(self, confirmation: ToolConfirmation) -> bool:
-        output = [
-            Text(confirmation.tool_name, style="tool"),
-            Text(confirmation.description, style="code"),
-        ]
+        output = []
+
+        # Tool header
+        output.append(
+            Text.assemble(
+                ("🔧 Tool: ", "muted"),
+                (confirmation.tool_name, "tool"),
+            )
+        )
+
+        # Action description
+        output.append(
+            Text.assemble(
+                ("📋 Action: ", "muted"),
+                (confirmation.description, "code"),
+            )
+        )
 
         if confirmation.command:
-            output.append(Text(f"$ {confirmation.command}", style="warning"))
+            output.append(Text(""))
+            output.append(
+                Text.assemble(
+                    ("⚡ Command: ", "warning"),
+                    (f"$ {confirmation.command}", "code"),
+                )
+            )
 
         if confirmation.diff:
+            output.append(Text(""))
             diff_text = confirmation.diff.to_diff()
             output.append(
                 Syntax(
@@ -577,44 +654,107 @@ class TUI:
         self.console.print(
             Panel(
                 Group(*output),
-                title=Text("Approval required", style="warning"),
+                title=Text("⚠️  Approval Required", style="warning"),
                 title_align="left",
+                subtitle=Text("y = approve, n = reject", style="muted"),
+                subtitle_align="right",
                 border_style="warning",
-                box=box.ROUNDED,
+                box=box.HEAVY,
                 padding=(1, 2),
             )
         )
 
         response = Prompt.ask(
-            "\nApprove?", choices=["y", "n", "yes", "no"], default="n"
+            "\n[bold yellow]Approve?[/bold yellow]",
+            choices=["y", "n", "yes", "no"],
+            default="n",
         )
 
         return response.lower() in {"y", "yes"}
 
+    def show_token_usage(self, input_tokens: int, output_tokens: int, total_tokens: int) -> None:
+        """Display token usage statistics"""
+        if not self.config.ui.show_token_usage:
+            return
+
+        usage_table = Table.grid(padding=(0, 2))
+        usage_table.add_column(style="muted", justify="right")
+        usage_table.add_column(style="info")
+
+        usage_table.add_row("📥 Input:", f"{input_tokens:,} tokens")
+        usage_table.add_row("📤 Output:", f"{output_tokens:,} tokens")
+        usage_table.add_row("📊 Total:", f"{total_tokens:,} tokens")
+
+        self.console.print(
+            Panel(
+                usage_table,
+                title=Text("💰 Token Usage", style="muted"),
+                title_align="left",
+                border_style="dim",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
+
     def show_help(self) -> None:
         help_text = """
-## Commands
+# 📚 BYOM AI Agents - Help
 
-- `/help` - Show this help
-- `/exit` or `/quit` - Exit the agent
-- `/clear` - Clear conversation history
-- `/config` - Show current configuration
-- `/model <name>` - Change the model
-- `/approval <mode>` - Change approval mode
-- `/stats` - Show session statistics
-- `/tools` - List available tools
-- `/mcp` - Show MCP server status
-- `/save` - Save current session
-- `/checkpoint [name]` - Create a checkpoint
-- `/checkpoints` - List available checkpoints
-- `/restore <checkpoint_id>` - Restore a checkpoint
-- `/sessions` - List saved sessions
-- `/resume <session_id>` - Resume a saved session
+## 🎮 Basic Commands
 
-## Tips
+| Command | Description |
+|---------|-------------|
+| `/help` | Show this help message |
+| `/exit` or `/quit` | Exit the agent |
+| `/clear` | Clear conversation history |
 
-- Just type your message to chat with the agent
-- The agent can read, write, and execute code
-- Some operations require approval (can be configured)
+## ⚙️  Configuration
+
+| Command | Description |
+|---------|-------------|
+| `/config` | Show current configuration |
+| `/model <name>` | Change the model |
+| `/approval <mode>` | Change approval mode (auto/on-request/never) |
+
+## 📊 Information
+
+| Command | Description |
+|---------|-------------|
+| `/stats` | Show session statistics |
+| `/tools` | List available tools |
+| `/mcp` | Show MCP server status |
+
+## 💾 Session Management
+
+| Command | Description |
+|---------|-------------|
+| `/save` | Save current session |
+| `/sessions` | List saved sessions |
+| `/resume <session_id>` | Resume a saved session |
+| `/checkpoint` | Create a checkpoint |
+| `/restore <checkpoint_id>` | Restore a checkpoint |
+
+## 💡 Tips
+
+- 💬 **Chat**: Just type your message to interact with the agent
+- 🔧 **Tools**: The agent has access to file operations, shell commands, and more
+- ✅ **Approval**: Some operations may require approval (configurable with `/approval`)
+- 📝 **Context**: The agent maintains conversation context automatically
+- 🎯 **Specific**: Be specific in your requests for better results
+
+## 🚀 Quick Start Examples
+
+```bash
+# Ask the agent to read a file
+What's in src/main.py?
+
+# Request code changes
+Add error handling to the login function
+
+# Run shell commands
+Run the tests and show me the results
+```
 """
+        self.console.print()
         self.console.print(Markdown(help_text))
+        self.console.print()

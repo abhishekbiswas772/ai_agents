@@ -46,6 +46,7 @@ dependencies = [
     "setuptools>=80.9.0",
     "ddgs>=9.10.0",
     "fastmcp>=2.14.3",
+    "pytest>=9.0.2",
 ]
 
 [project.optional-dependencies]
@@ -80,7 +81,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = "-v --cov=. --cov-report=term-missing"
+addopts = "-v"
 
 [tool.black]
 line-length = 100
