@@ -264,6 +264,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "pytest-cov" },
     { name = "twine" },
 ]
 
@@ -297,7 +298,10 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "twine", specifier = ">=6.2.0" }]
+dev = [
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "twine", specifier = ">=6.2.0" },
+]
 
 [[package]]
 name = "cachetools"

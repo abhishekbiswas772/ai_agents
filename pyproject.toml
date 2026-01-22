@@ -81,7 +81,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-asyncio_mode = "auto"
 addopts = "-v"
 
 [tool.black]
@@ -107,5 +106,6 @@ disallow_untyped_defs = false
 
 [dependency-groups]
 dev = [
+    "pytest-cov>=7.0.0",
     "twine>=6.2.0",
 ]
