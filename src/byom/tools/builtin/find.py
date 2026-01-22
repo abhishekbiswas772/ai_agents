@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from pydantic import BaseModel, Field
 
-from byom.tools.base import Tool, ToolResult, ToolKind
+from byom.tools.base import Tool, ToolResult, ToolKind, ToolInvocation
 
 
 class FindParams(BaseModel):
@@ -43,15 +43,17 @@ class FindTool(Tool):
 
     name = "find"
     description = "Recursively search for files and directories using glob patterns"
-    parameters = FindParams
+    schema = FindParams
     kind = ToolKind.READ
 
-    def execute(self, arguments: dict[str, Any], cwd: Path) -> ToolResult:
+    async def execute(self, invocation: ToolInvocation) -> ToolResult:
         """Execute the find command"""
         try:
-            params = FindParams(**arguments)
+            params = FindParams(**invocation.params)
         except Exception as e:
-            return ToolResult.error(f"Invalid parameters: {e}")
+            return ToolResult.error_result(f"Invalid parameters: {e}")
+
+        cwd = invocation.cwd
 
         # Resolve path
         search_path = Path(params.path)
@@ -59,10 +61,10 @@ class FindTool(Tool):
             search_path = cwd / search_path
 
         if not search_path.exists():
-            return ToolResult.error(f"Path does not exist: {search_path}")
+            return ToolResult.error_result(f"Path does not exist: {search_path}")
 
         if not search_path.is_dir():
-            return ToolResult.error(f"Path is not a directory: {search_path}")
+            return ToolResult.error_result(f"Path is not a directory: {search_path}")
 
         try:
             # Perform search
@@ -75,7 +77,7 @@ class FindTool(Tool):
             )
 
             if not results:
-                return ToolResult.success("No matches found", metadata={"count": 0})
+                return ToolResult.success_result("No matches found", metadata={"count": 0})
 
             # Format output
             output_lines = []
@@ -100,10 +102,10 @@ class FindTool(Tool):
                 "pattern": params.pattern,
             }
 
-            return ToolResult.success(output, metadata=metadata)
+            return ToolResult.success_result(output, metadata=metadata)
 
         except Exception as e:
-            return ToolResult.error(f"Search failed: {e}")
+            return ToolResult.error_result(f"Search failed: {e}")
 
     def _search(
         self,
@@ -162,43 +164,3 @@ class FindTool(Tool):
         results.sort()
 
         return results
-
-    @staticmethod
-    def get_schema() -> dict[str, Any]:
-        """Get JSON schema for the tool"""
-        return {
-            "type": "function",
-            "function": {
-                "name": "find",
-                "description": "Recursively search for files and directories using glob patterns",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Starting directory path (absolute or relative)",
-                        },
-                        "pattern": {
-                            "type": "string",
-                            "description": "Glob pattern to match (e.g., '*.py', '**/*.ts', 'test_*.py')",
-                        },
-                        "type": {
-                            "type": "string",
-                            "enum": ["f", "d"],
-                            "description": "Filter by type: 'f' for files only, 'd' for directories only",
-                        },
-                        "max_depth": {
-                            "type": "integer",
-                            "description": "Maximum recursion depth (default: 10, use -1 for unlimited)",
-                            "default": 10,
-                        },
-                        "case_sensitive": {
-                            "type": "boolean",
-                            "description": "Whether pattern matching is case-sensitive",
-                            "default": True,
-                        },
-                    },
-                    "required": ["path"],
-                },
-            },
-        }

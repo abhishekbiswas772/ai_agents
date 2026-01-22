@@ -11,11 +11,21 @@ Supported providers:
 
 from byom.providers.base import LLMProvider, ProviderConfig
 from byom.providers.registry import get_provider, register_provider, list_providers
+from byom.providers.presets import (
+    PROVIDER_PRESETS,
+    get_preset,
+    list_presets,
+    get_config_for_preset,
+)
 
 __all__ = [
     "LLMProvider",
     "ProviderConfig",
     "get_provider",
-    "register_provider", 
+    "register_provider",
     "list_providers",
+    "PROVIDER_PRESETS",
+    "get_preset",
+    "list_presets",
+    "get_config_for_preset",
 ]

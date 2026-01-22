@@ -367,7 +367,7 @@ def main(
         console.print(f"[error]Configuration Error: {e}[/error]")
         sys.exit(1)
 
-    errors = config.validate()
+    errors = config.validate_config()
 
     if errors:
         for error in errors:

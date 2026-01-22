@@ -3,6 +3,7 @@ BYOM AI Agents - Configuration Loader
 
 Handles loading configuration from files and environment,
 auto-creating directories on first run, and merging configs.
+Automatically loads .env files for development convenience.
 """
 
 from __future__ import annotations
@@ -12,11 +13,15 @@ import os
 import logging
 
 from platformdirs import user_config_dir, user_data_dir
+from dotenv import load_dotenv
 import tomli
 
 from byom.config.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Auto-load .env files for development (silent, doesn't override existing env vars)
+load_dotenv(verbose=False, override=False)
 
 APP_NAME = "byom-ai"
 CONFIG_FILE_NAME = "config.toml"
@@ -167,11 +172,13 @@ theme = "monokai"
 show_thinking = true
 show_token_usage = true
 
-# Approval policy: on-request, auto, auto-edit, never, yolo
-approval = "on-request"
-
-# Maximum conversation turns
+# Behavior settings
+approval = "on-request"  # on-request, auto, auto-edit, never, yolo
 max_turns = 100
+
+# Hooks (custom scripts triggered on events)
+hooks_enabled = false
+# hooks = []  # Add custom hooks here
 
 # MCP Servers (optional)
 # [mcp_servers.filesystem]

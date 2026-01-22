@@ -44,7 +44,7 @@ class ContextManager:
         tools: list[Tool] | None,
     ) -> None:
         # Convert tools to dict format for system prompt
-        tool_schemas = [tool.get_schema() for tool in tools] if tools else []
+        tool_schemas = [tool.to_openai_schema() for tool in tools] if tools else []
         self._system_prompt = create_system_prompt(
             config.cwd,
             tool_schemas,
