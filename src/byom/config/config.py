@@ -29,8 +29,9 @@ class ThinkingConfig(BaseModel):
 
 
 class ApiConfig(BaseModel):
-    """API configuration for base URL and other API settings."""
+    """API configuration for base URL and API key settings."""
     base_url: str | None = None
+    api_key: str | None = None  # Stored API key (optional, can also use env var)
 
 
 class ModelConfig(BaseModel):
@@ -169,7 +170,10 @@ class Config(BaseModel):
 
     @property
     def api_key(self) -> str | None:
-        """Get API key from environment."""
+        """Get API key from config file or environment."""
+        # Priority: config file value > specific env var > generic API_KEY env var
+        if self.api.api_key:
+            return self.api.api_key
         return os.environ.get(self.model.api_key_env) or os.environ.get("API_KEY")
 
     @property

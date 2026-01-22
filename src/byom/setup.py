@@ -170,12 +170,18 @@ def run_setup_wizard() -> bool:
             )
             api_key = env_key
         else:
-            console.print(
-                f"[yellow]ℹ[/yellow] No {preset.api_key_env_var} found in environment"
-            )
-            console.print(
-                f"[dim]You'll need to set this before using BYOM[/dim]"
-            )
+            console.print(f"\n[bold yellow]🔑 API Key Required[/bold yellow]")
+            console.print(f"You can paste your API key here to store it securely in the config file.")
+            console.print(f"[dim]Alternatively, leave empty to set {preset.api_key_env_var} environment variable manually.[/dim]")
+            
+            entered_key = Prompt.ask("Enter API Key", password=True)
+            if entered_key:
+                api_key = entered_key
+                config_data["api.api_key"] = entered_key
+            else:
+                console.print(
+                    f"[yellow]ℹ[/yellow] No key entered. You'll need to set {preset.api_key_env_var} manually."
+                )
 
     # Step 3: Additional Settings
     console.print(f"\n[bold]Step 3: Additional Settings[/bold]\n")
@@ -237,16 +243,20 @@ max_tokens = 4096
         config_content += f"""base_url = "{config_data['api.base_url']}"
 """
 
-    if preset.requires_api_key:
+    if "api.api_key" in config_data:
+        config_content += f"""api_key = "{config_data['api.api_key']}"
+"""
+    elif preset.requires_api_key:
         if api_key:
-            # Don't store in config, use env var
-            config_content += f"""# API Key: Set via environment variable {preset.api_key_env_var}
-# Or uncomment below (not recommended for security):
-# api_key = "your-key-here"
+            # Key found in env during setup, but not entered by user (so we don't save to config)
+            config_content += f"""# API Key found in environment: {preset.api_key_env_var}
+# api_key = "..." 
 """
         else:
             config_content += f"""# Set your API key via environment variable:
 # export {preset.api_key_env_var}=your-key-here
+# Or uncomment below to set directly:
+# api_key = "your-key-here"
 """
 
     config_content += f"""
