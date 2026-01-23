@@ -57,7 +57,24 @@ BYOM AI Agents is a powerful, terminal-based AI coding assistant that puts YOU i
 
 ## 📦 Installation
 
-### Using pip (Recommended)
+### Windows
+
+```bash
+# Step 1: Install BYOM
+pip install byom-ai-agents
+
+# Step 2: Setup PATH (Windows only)
+python -m byom.setup_path
+```
+
+> **⚠️ Important**: After running `setup_path`, **restart your terminal** for the `byom` command to work.
+
+**Verify Installation:**
+```bash
+byom --version
+```
+
+### Linux/Mac
 
 ```bash
 pip install byom-ai-agents
@@ -160,6 +177,27 @@ byom --cwd /path/to/project
 
 # Show version
 byom --version
+```
+
+### Troubleshooting (Windows)
+
+**"byom is not recognized as a command"**
+
+If you installed with pip and didn't run the setup script:
+
+```bash
+# Run the PATH setup script
+python -m byom.setup_path
+
+# Then restart your terminal
+```
+
+**Alternative: Run without PATH setup**
+
+You can always run BYOM without adding to PATH:
+
+```bash
+python -m byom.cli
 ```
 
 ## ⚙️ Configuration

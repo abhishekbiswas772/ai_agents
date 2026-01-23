@@ -68,6 +68,7 @@ Issues = "https://github.com/abhishekbiswas772/ai_agents/issues"
 
 [project.scripts]
 byom = "byom.cli:main"
+byom-setup-path = "byom.setup_path:main"
 
 [tool.setuptools]
 packages = {"find" = {"where" = ["src"]}}
