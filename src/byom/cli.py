@@ -10,6 +10,14 @@ import click
 import pyfiglet
 from rich.console import Console
 from rich.panel import Panel
+from prompt_toolkit import PromptSession
+from prompt_toolkit.styles import Style as PromptStyle
+from prompt_toolkit.formatted_text import HTML
+
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.filters import completion_is_selected
+
+from byom.utils.file_indexer import FileIndexer, FileCompleter
 
 from byom import __version__
 from byom.agent.agent import Agent
@@ -31,12 +39,21 @@ class CLI:
         self.agent: Agent | None = None
         self.config = config
         self.tui = TUI(config, console)
+        self.file_indexer = FileIndexer(config.cwd)
+        # Ensure index is up to date on startup
+        self.file_indexer.scan_workspace()
+        self.file_indexer.start_watching()
 
-    async def run_single(self, message: str) -> str | None:
-        """Run a single message query"""
-        async with Agent(self.config) as agent:
-            self.agent = agent
-            return await self._process_message(message)
+    def _create_key_bindings(self) -> KeyBindings:
+        """Create custom key bindings for the session"""
+        kb = KeyBindings()
+
+        @kb.add("enter", filter=completion_is_selected)
+        def _(event):
+            # If a completion is selected, accept it but don't submit the prompt
+            event.current_buffer.complete_state = None
+        
+        return kb
 
     async def run_interactive(self) -> str | None:
         """Run interactive chat session"""
@@ -56,9 +73,38 @@ class CLI:
         ) as agent:
             self.agent = agent
 
+            # Initialize prompt toolkit session
+            session = PromptSession(
+                completer=FileCompleter(self.file_indexer),
+                style=PromptStyle.from_dict({
+                    # User Input
+                    '': '#ffffff',
+                    
+                    # Completion menu
+                    'completion-menu': 'bg:#2e3440 #d8dee9',
+                    'completion-menu.completion': 'bg:#2e3440 #d8dee9',
+                    'completion-menu.completion.current': 'bg:#5e81ac #ffffff bold',
+                    'completion-menu.meta.completion': 'bg:#2e3440 #88c0d0',
+                    'completion-menu.meta.completion.current': 'bg:#5e81ac #ffffff bold',
+                    
+                    # Scrollbar
+                    'scrollbar.background': 'bg:#2e3440',
+                    'scrollbar.button': 'bg:#4c566a',
+                    
+                    # Bottom toolbar if used
+                    'bottom-toolbar': '#444444 bg:#ffffff',
+                }),
+                key_bindings=self._create_key_bindings(),
+            )
+
             while True:
                 try:
-                    user_input = console.input("\n[bright_blue bold]💬 You >[/bright_blue bold] ").strip()
+                    # Use prompt_toolkit for input
+                    user_input = await session.prompt_async(
+                        HTML("<b><ansiblue>💬 You ></ansiblue></b> "),
+                    )
+                    user_input = user_input.strip()
+
                     if not user_input:
                         continue
 
@@ -74,7 +120,8 @@ class CLI:
                 except EOFError:
                     break
 
-        console.print("\n[bright_cyan]👋 Goodbye! Thanks for using BYOM AI Agents.[/bright_cyan]")
+            self.file_indexer.stop_watching()
+            console.print("\n[bright_cyan]👋 Goodbye! Thanks for using BYOM AI Agents.[/bright_cyan]")
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
         """Get tool kind for display purposes"""
