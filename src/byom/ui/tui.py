@@ -716,31 +716,6 @@ class TUI:
 | `/model <name>` | Change the model |
 | `/approval <mode>` | Change approval mode (auto/on-request/never) |
 
-## 📊 Information
-
-| Command | Description |
-|---------|-------------|
-| `/stats` | Show session statistics |
-| `/tools` | List available tools |
-| `/mcp` | Show MCP server status |
-
-## 💾 Session Management
-
-| Command | Description |
-|---------|-------------|
-| `/save` | Save current session |
-| `/sessions` | List saved sessions |
-| `/resume <session_id>` | Resume a saved session |
-| `/checkpoint` | Create a checkpoint |
-| `/restore <checkpoint_id>` | Restore a checkpoint |
-
-## 💡 Tips
-
-- 💬 **Chat**: Just type your message to interact with the agent
-- 🔧 **Tools**: The agent has access to file operations, shell commands, and more
-- ✅ **Approval**: Some operations may require approval (configurable with `/approval`)
-- 📝 **Context**: The agent maintains conversation context automatically
-- 🎯 **Specific**: Be specific in your requests for better results
 
 ## 🚀 Quick Start Examples
 
