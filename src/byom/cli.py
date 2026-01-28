@@ -10,6 +10,18 @@ import click
 import pyfiglet
 from rich.console import Console
 from rich.panel import Panel
+from prompt_toolkit import PromptSession
+from prompt_toolkit.styles import Style as PromptStyle
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.completion import Completer, Completion, NestedCompleter
+
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.filters import completion_is_selected
+
+from byom.utils.file_indexer import FileIndexer, FileCompleter
+from byom.commands.registry import CommandRegistry, CommandCompleter
+from byom.commands.base import CommandContext
+from byom.commands.core import register_default_commands
 
 from byom import __version__
 from byom.agent.agent import Agent
@@ -24,6 +36,22 @@ from byom.setup import show_welcome_banner, run_setup_wizard
 console = get_console()
 
 
+class MasterCompleter(Completer):
+    """
+    Delegates to FileCompleter for '@' and CommandCompleter for '/'.
+    """
+    def __init__(self, file_completer: FileCompleter, command_completer: CommandCompleter):
+        self.file_completer = file_completer
+        self.command_completer = command_completer
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        if text.startswith('/'):
+            yield from self.command_completer.get_completions(document, complete_event)
+        else:
+            # File completer handles '@' trigger internally
+            yield from self.file_completer.get_completions(document, complete_event)
+
 class CLI:
     """Main CLI handler for BYOM AI Agents"""
 
@@ -31,12 +59,25 @@ class CLI:
         self.agent: Agent | None = None
         self.config = config
         self.tui = TUI(config, console)
+        self.file_indexer = FileIndexer(config.cwd)
+        # Ensure index is up to date on startup
+        self.file_indexer.scan_workspace()
+        self.file_indexer.start_watching()
+        
+        # Initialize Command Registry
+        self.command_registry = CommandRegistry()
+        register_default_commands(self.command_registry)
 
-    async def run_single(self, message: str) -> str | None:
-        """Run a single message query"""
-        async with Agent(self.config) as agent:
-            self.agent = agent
-            return await self._process_message(message)
+    def _create_key_bindings(self) -> KeyBindings:
+        """Create custom key bindings for the session"""
+        kb = KeyBindings()
+
+        @kb.add("enter", filter=completion_is_selected)
+        def _(event):
+            # If a completion is selected, accept it but don't submit the prompt
+            event.current_buffer.complete_state = None
+        
+        return kb
 
     async def run_interactive(self) -> str | None:
         """Run interactive chat session"""
@@ -56,14 +97,53 @@ class CLI:
         ) as agent:
             self.agent = agent
 
+            # Initialize prompt toolkit session
+            session = PromptSession(
+                completer=MasterCompleter(
+                    FileCompleter(self.file_indexer),
+                    self.command_registry.get_completer()
+                ),
+                style=PromptStyle.from_dict({
+                    # User Input
+                    '': '#ffffff',
+                    
+                    # Completion menu - shared style
+                    'completion-menu': 'bg:#2e3440 #d8dee9',
+                    'completion-menu.completion': 'bg:#2e3440 #d8dee9',
+                    'completion-menu.completion.current': 'bg:#5e81ac #ffffff bold',
+                    'completion-menu.meta.completion': 'bg:#2e3440 #88c0d0',
+                    'completion-menu.meta.completion.current': 'bg:#5e81ac #ffffff bold',
+                    
+                    # Scrollbar
+                    'scrollbar.background': 'bg:#2e3440',
+                    'scrollbar.button': 'bg:#4c566a',
+                    
+                    # Bottom toolbar if used
+                    'bottom-toolbar': '#444444 bg:#ffffff',
+                }),
+                key_bindings=self._create_key_bindings(),
+            )
+
             while True:
                 try:
-                    user_input = console.input("\n[bright_blue bold]💬 You >[/bright_blue bold] ").strip()
+                    # Use prompt_toolkit for input
+                    user_input = await session.prompt_async(
+                        HTML("<b><ansiblue>💬 You ></ansiblue></b> "),
+                    )
+                    user_input = user_input.strip()
+
                     if not user_input:
                         continue
 
                     if user_input.startswith("/"):
-                        should_continue = await self._handle_command(user_input)
+                        # Create context for command execution
+                        cmd_context = CommandContext(
+                            agent=self.agent,
+                            config=self.config,
+                            tui=self.tui,
+                            console=console
+                        )
+                        should_continue = await self.command_registry.handle_input(cmd_context, user_input)
                         if not should_continue:
                             break
                         continue
@@ -74,7 +154,8 @@ class CLI:
                 except EOFError:
                     break
 
-        console.print("\n[bright_cyan]👋 Goodbye! Thanks for using BYOM AI Agents.[/bright_cyan]")
+            self.file_indexer.stop_watching()
+            console.print("\n[bright_cyan]👋 Goodbye! Thanks for using BYOM AI Agents.[/bright_cyan]")
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
         """Get tool kind for display purposes"""
@@ -145,189 +226,7 @@ class CLI:
 
         return final_response
 
-    async def _handle_command(self, command: str) -> bool:
-        """Handle slash commands. Returns True to continue, False to exit"""
-        cmd = command.lower().strip()
-        parts = cmd.split(maxsplit=1)
-        cmd_name = parts[0]
-        cmd_args = parts[1] if len(parts) > 1 else ""
 
-        if cmd_name == "/exit" or cmd_name == "/quit":
-            return False
-        elif command == "/help":
-            self.tui.show_help()
-        elif command == "/clear":
-            self.agent.session.context_manager.clear()
-            self.agent.session.loop_detector.clear()
-            console.print("[success]🧹 Conversation cleared[/success]")
-        elif command == "/config":
-            console.print("\n[bold bright_cyan]⚙️  Current Configuration[/bold bright_cyan]")
-            console.print(f"  🤖 Model: [highlight]{self.config.model_name}[/highlight]")
-            console.print(f"  🌡️  Temperature: [highlight]{self.config.temperature}[/highlight]")
-            console.print(f"  ✅ Approval: [highlight]{self.config.approval.value}[/highlight]")
-            console.print(f"  📂 Working Dir: [muted]{self.config.cwd}[/muted]")
-            console.print(f"  🔄 Max Turns: [highlight]{self.config.max_turns}[/highlight]")
-            console.print(f"  🎣 Hooks Enabled: [highlight]{self.config.hooks_enabled}[/highlight]")
-        elif cmd_name == "/model":
-            if cmd_args:
-                self.config.model_name = cmd_args
-                console.print(f"[success]Model changed to: {cmd_args}[/success]")
-            else:
-                console.print(f"Current model: {self.config.model_name}")
-        elif cmd_name == "/approval":
-            if cmd_args:
-                try:
-                    approval = ApprovalPolicy(cmd_args)
-                    self.config.approval = approval
-                    console.print(
-                        f"[success]Approval policy changed to: {cmd_args}[/success]"
-                    )
-                except:
-                    console.print(
-                        f"[error]Incorrect approval policy: {cmd_args}[/error]"
-                    )
-                    console.print(
-                        f"Valid options: {', '.join(p for p in ApprovalPolicy)}"
-                    )
-            else:
-                console.print(f"Current approval policy: {self.config.approval.value}")
-        elif cmd_name == "/stats":
-            stats = self.agent.session.get_stats()
-            console.print("\n[bold]Session Statistics[/bold]")
-            for key, value in stats.items():
-                console.print(f"   {key}: {value}")
-        elif cmd_name == "/tools":
-            tools = self.agent.session.tool_registry.get_tools()
-            console.print(f"\n[bold]Available tools ({len(tools)})[/bold]")
-            for tool in tools:
-                console.print(f"  • {tool.name}")
-        elif cmd_name == "/mcp":
-            mcp_servers = self.agent.session.mcp_manager.get_all_servers()
-            console.print(f"\n[bold]MCP Servers ({len(mcp_servers)})[/bold]")
-            for server in mcp_servers:
-                status = server["status"]
-                status_color = "green" if status == "connected" else "red"
-                console.print(
-                    f"  • {server['name']}: [{status_color}]{status}[/{status_color}] ({server['tools']} tools)"
-                )
-        elif cmd_name == "/save":
-            persistence_manager = PersistenceManager()
-            session_snapshot = SessionSnapshot(
-                session_id=self.agent.session.session_id,
-                created_at=self.agent.session.created_at,
-                updated_at=self.agent.session.updated_at,
-                turn_count=self.agent.session.turn_count,
-                messages=self.agent.session.context_manager.get_messages(),
-                total_usage=self.agent.session.context_manager.total_usage,
-            )
-            persistence_manager.save_session(session_snapshot)
-            console.print(
-                f"[success]Session saved: {self.agent.session.session_id}[/success]"
-            )
-        elif cmd_name == "/sessions":
-            persistence_manager = PersistenceManager()
-            sessions = persistence_manager.list_sessions()
-            console.print("\n[bold]Saved Sessions[/bold]")
-            for s in sessions:
-                console.print(
-                    f"  • {s['session_id']} (turns: {s['turn_count']}, updated: {s['updated_at']})"
-                )
-        elif cmd_name == "/resume":
-            if not cmd_args:
-                console.print(f"[error]Usage: /resume <session_id>[/error]")
-            else:
-                persistence_manager = PersistenceManager()
-                snapshot = persistence_manager.load_session(cmd_args)
-                if not snapshot:
-                    console.print(f"[error]Session does not exist[/error]")
-                else:
-                    session = Session(config=self.config)
-                    await session.initialize()
-                    session.session_id = snapshot.session_id
-                    session.created_at = snapshot.created_at
-                    session.updated_at = snapshot.updated_at
-                    session.turn_count = snapshot.turn_count
-                    session.context_manager.total_usage = snapshot.total_usage
-
-                    for msg in snapshot.messages:
-                        if msg.get("role") == "system":
-                            continue
-                        elif msg["role"] == "user":
-                            session.context_manager.add_user_message(
-                                msg.get("content", "")
-                            )
-                        elif msg["role"] == "assistant":
-                            session.context_manager.add_assistant_message(
-                                msg.get("content", ""), msg.get("tool_calls")
-                            )
-                        elif msg["role"] == "tool":
-                            session.context_manager.add_tool_result(
-                                msg.get("tool_call_id", ""), msg.get("content", "")
-                            )
-
-                    await self.agent.session.client.close()
-                    await self.agent.session.mcp_manager.shutdown()
-
-                    self.agent.session = session
-                    console.print(
-                        f"[success]Resumed session: {session.session_id}[/success]"
-                    )
-        elif cmd_name == "/checkpoint":
-            persistence_manager = PersistenceManager()
-            session_snapshot = SessionSnapshot(
-                session_id=self.agent.session.session_id,
-                created_at=self.agent.session.created_at,
-                updated_at=self.agent.session.updated_at,
-                turn_count=self.agent.session.turn_count,
-                messages=self.agent.session.context_manager.get_messages(),
-                total_usage=self.agent.session.context_manager.total_usage,
-            )
-            checkpoint_id = persistence_manager.save_checkpoint(session_snapshot)
-            console.print(f"[success]Checkpoint created: {checkpoint_id}[/success]")
-        elif cmd_name == "/restore":
-            if not cmd_args:
-                console.print(f"[error]Usage: /restore <checkpoint_id>[/error]")
-            else:
-                persistence_manager = PersistenceManager()
-                snapshot = persistence_manager.load_checkpoint(cmd_args)
-                if not snapshot:
-                    console.print(f"[error]Checkpoint does not exist[/error]")
-                else:
-                    session = Session(config=self.config)
-                    await session.initialize()
-                    session.session_id = snapshot.session_id
-                    session.created_at = snapshot.created_at
-                    session.updated_at = snapshot.updated_at
-                    session.turn_count = snapshot.turn_count
-                    session.context_manager.total_usage = snapshot.total_usage
-
-                    for msg in snapshot.messages:
-                        if msg.get("role") == "system":
-                            continue
-                        elif msg["role"] == "user":
-                            session.context_manager.add_user_message(
-                                msg.get("content", "")
-                            )
-                        elif msg["role"] == "assistant":
-                            session.context_manager.add_assistant_message(
-                                msg.get("content", ""), msg.get("tool_calls")
-                            )
-                        elif msg["role"] == "tool":
-                            session.context_manager.add_tool_result(
-                                msg.get("tool_call_id", ""), msg.get("content", "")
-                            )
-
-                    await self.agent.session.client.close()
-                    await self.agent.session.mcp_manager.shutdown()
-
-                    self.agent.session = session
-                    console.print(
-                        f"[success]Restored checkpoint: {cmd_args}[/success]"
-                    )
-        else:
-            console.print(f"[error]Unknown command: {cmd_name}[/error]")
-
-        return True
 
 
 @click.command()
