@@ -19,15 +19,27 @@ class MessageItem:
     pruned_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Convert message to dictionary format for API calls.
+
+        Note: Some providers (like Arcee AI) require the 'content' field
+        to always be present, even for assistant messages with tool calls.
+        """
         result: dict[str, Any] = {"role": self.role}
 
+        # Tool call ID for tool role messages
         if self.tool_call_id:
             result["tool_call_id"] = self.tool_call_id
 
+        # Tool calls for assistant messages
         if self.tool_calls:
             result["tool_calls"] = self.tool_calls
 
-        if self.content:
+        # Content - always include for assistant/tool/user messages
+        # Some providers require content even when tool_calls are present
+        if self.role in ("assistant", "tool", "user"):
+            result["content"] = self.content if self.content else ""
+        elif self.content:
             result["content"] = self.content
 
         return result
