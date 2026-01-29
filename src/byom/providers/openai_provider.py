@@ -132,32 +132,56 @@ class OpenAIProvider(LLMProvider):
             except RateLimitError as e:
                 if attempt < self.config.max_retries:
                     wait_time = 2 ** attempt
-                    logger.warning(f"Rate limited, retrying in {wait_time}s...")
+                    logger.warning(
+                        f"Rate limited (attempt {attempt + 1}/{self.config.max_retries + 1}), "
+                        f"retrying in {wait_time}s..."
+                    )
                     await asyncio.sleep(wait_time)
                 else:
-                    yield StreamEvent(
-                        type="error",
-                        error=f"Rate limit exceeded after {self.config.max_retries} retries: {e}",
+                    error_msg = (
+                        f"Rate limit exceeded after {self.config.max_retries} retries. "
+                        f"Provider: {self.display_name}, Model: {kwargs.get('model')}. "
+                        f"Error: {str(e)}"
                     )
+                    logger.error(error_msg)
+                    yield StreamEvent(type="error", error=error_msg)
                     return
-                    
+
             except APIConnectionError as e:
                 if attempt < self.config.max_retries:
                     wait_time = 2 ** attempt
-                    logger.warning(f"Connection error, retrying in {wait_time}s...")
+                    logger.warning(
+                        f"Connection error (attempt {attempt + 1}/{self.config.max_retries + 1}), "
+                        f"retrying in {wait_time}s..."
+                    )
                     await asyncio.sleep(wait_time)
                 else:
-                    yield StreamEvent(
-                        type="error",
-                        error=f"Connection error after {self.config.max_retries} retries: {e}",
+                    error_msg = (
+                        f"Connection failed after {self.config.max_retries} retries. "
+                        f"Base URL: {self.config.base_url}. "
+                        f"Error: {str(e)}"
                     )
+                    logger.error(error_msg)
+                    yield StreamEvent(type="error", error=error_msg)
                     return
-                    
+
             except APIError as e:
-                yield StreamEvent(
-                    type="error",
-                    error=f"API error: {e}",
+                error_msg = (
+                    f"API error from {self.display_name}. "
+                    f"Model: {kwargs.get('model')}. "
+                    f"Error: {str(e)}"
                 )
+                logger.error(error_msg)
+                yield StreamEvent(type="error", error=error_msg)
+                return
+            except Exception as e:
+                error_msg = (
+                    f"Unexpected error in {self.display_name} provider. "
+                    f"Model: {kwargs.get('model')}. "
+                    f"Error: {type(e).__name__}: {str(e)}"
+                )
+                logger.exception(error_msg)
+                yield StreamEvent(type="error", error=error_msg)
                 return
     
     async def _stream_response(

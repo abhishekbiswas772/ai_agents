@@ -229,7 +229,7 @@ wheels = [
 
 [[package]]
 name = "byom-ai-agents"
-version = "0.1.10"
+version = "0.1.8"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

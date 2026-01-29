@@ -79,6 +79,11 @@ class ToolResultMessage:
 
 
 def parse_tool_call_arguments(arguments_str: str) -> dict[str, Any]:
+    """Parse tool call arguments with robust error handling.
+    
+    This function is kept for backward compatibility.
+    Use byom.tools.tool_call_parser for advanced parsing.
+    """
     if not arguments_str:
         return {}
 

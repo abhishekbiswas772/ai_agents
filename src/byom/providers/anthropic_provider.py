@@ -182,18 +182,54 @@ if HAS_ANTHROPIC:
                         "budget_tokens": self.config.thinking_budget,
                     }
             
-            try:
-                if stream:
-                    async for event in self._stream_response(client, kwargs):
+            for attempt in range(self.config.max_retries + 1):
+                try:
+                    if stream:
+                        async for event in self._stream_response(client, kwargs):
+                            yield event
+                    else:
+                        event = await self._non_stream_response(client, kwargs)
                         yield event
-                else:
-                    event = await self._non_stream_response(client, kwargs)
-                    yield event
-                    
-            except RateLimitError as e:
-                yield StreamEvent(type="error", error=f"Rate limited: {e}")
-            except APIError as e:
-                yield StreamEvent(type="error", error=f"API error: {e}")
+                    return
+
+                except RateLimitError as e:
+                    if attempt < self.config.max_retries:
+                        import asyncio
+                        wait_time = 2 ** attempt
+                        logger.warning(
+                            f"Rate limited (attempt {attempt + 1}/{self.config.max_retries + 1}), "
+                            f"retrying in {wait_time}s..."
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        error_msg = (
+                            f"Rate limit exceeded after {self.config.max_retries} retries. "
+                            f"Provider: {self.display_name}, Model: {model}. "
+                            f"Error: {str(e)}"
+                        )
+                        logger.error(error_msg)
+                        yield StreamEvent(type="error", error=error_msg)
+                        return
+
+                except APIError as e:
+                    error_msg = (
+                        f"API error from {self.display_name}. "
+                        f"Model: {model}. "
+                        f"Error: {str(e)}"
+                    )
+                    logger.error(error_msg)
+                    yield StreamEvent(type="error", error=error_msg)
+                    return
+
+                except Exception as e:
+                    error_msg = (
+                        f"Unexpected error in {self.display_name} provider. "
+                        f"Model: {model}. "
+                        f"Error: {type(e).__name__}: {str(e)}"
+                    )
+                    logger.exception(error_msg)
+                    yield StreamEvent(type="error", error=error_msg)
+                    return
         
         async def _stream_response(
             self,

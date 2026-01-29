@@ -1,6 +1,6 @@
 import asyncio
 from typing import Any, AsyncGenerator
-from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
+import logging
 
 from byom.client.response import (
     StreamEventType,
@@ -11,46 +11,65 @@ from byom.client.response import (
     ToolCallDelta,
     parse_tool_call_arguments,
 )
+from byom.client.provider_bridge import ProviderBridge
 from byom.config.config import Config
+from byom.providers.base import ProviderConfig, ThinkingMode
+from byom.providers.registry import get_provider
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
+    """
+    Unified LLM client that works with any provider.
+
+    This class uses the provider abstraction layer to support multiple
+    LLM providers (OpenAI, Anthropic, Google, local models) through
+    a single unified interface.
+    """
+
     def __init__(self, config: Config) -> None:
-        self._client: AsyncOpenAI | None = None
+        self._provider = None
+        self._bridge = ProviderBridge()
         self._max_retries: int = 3
         self.config = config
 
-    def get_client(self) -> AsyncOpenAI:
-        if self._client is None:
-            self._client = AsyncOpenAI(
-                api_key=self.config.api_key,  # "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"
-                base_url=self.config.base_url,  # "https://openrouter.ai/api/v1"
+    def _get_provider(self):
+        """Get or create the provider instance."""
+        if self._provider is None:
+            # Create provider config from main config
+            provider_config = ProviderConfig(
+                api_key=self.config.api_key,
+                base_url=self.config.base_url,
+                timeout=120.0,
+                max_retries=self._max_retries,
+                thinking_mode=ThinkingMode(self.config.model.thinking.mode)
+                if self.config.model.thinking.enabled
+                else ThinkingMode.DISABLED,
+                thinking_budget=self.config.model.thinking.budget_tokens,
             )
-        return self._client
+
+            # Get provider instance using registry
+            self._provider = get_provider(
+                model=self.config.model_name,
+                config=provider_config,
+                provider_name=self.config.model.provider.value
+                if self.config.model.provider.value != "auto"
+                else None,
+            )
+
+            logger.info(
+                f"Initialized provider: {self._provider.display_name} "
+                f"for model: {self.config.model_name}"
+            )
+
+        return self._provider
 
     async def close(self) -> None:
-        if self._client:
-            await self._client.close()
-            self._client = None
-
-    def _build_tools(self, tools: list[dict[str, Any]]):
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": tool["name"],
-                    "description": tool.get("description", ""),
-                    "parameters": tool.get(
-                        "parameters",
-                        {
-                            "type": "object",
-                            "properties": {},
-                        },
-                    ),
-                },
-            }
-            for tool in tools
-        ]
+        """Close the provider connection."""
+        if self._provider:
+            await self._provider.close()
+            self._provider = None
 
     async def chat_completion(
         self,
@@ -58,177 +77,32 @@ class LLMClient:
         tools: list[dict[str, Any]] | None = None,
         stream: bool = True,
     ) -> AsyncGenerator[StreamEvent, None]:
-        client = self.get_client()
+        """
+        Send a chat completion request using the configured provider.
 
-        kwargs = {
-            "model": self.config.model_name,
-            "messages": messages,
-            "stream": stream,
-        }
+        This method uses the provider abstraction layer and bridges
+        provider events to client events for backward compatibility.
 
-        if tools:
-            kwargs["tools"] = self._build_tools(tools)
-            kwargs["tool_choice"] = "auto"
+        Args:
+            messages: Conversation messages
+            tools: Optional tool definitions
+            stream: Whether to stream the response
 
-        for attempt in range(self._max_retries + 1):
-            try:
-                if stream:
-                    async for event in self._stream_response(client, kwargs):
-                        yield event
-                else:
-                    event = await self._non_stream_response(client, kwargs)
-                    yield event
-                return
-            except RateLimitError as e:
-                if attempt < self._max_retries:
-                    wait_time = 2**attempt
-                    await asyncio.sleep(wait_time)
-                else:
-                    yield StreamEvent(
-                        type=StreamEventType.ERROR,
-                        error=f"Rate limit exceeded: {e}",
-                    )
-                    return
-            except APIConnectionError as e:
-                if attempt < self._max_retries:
-                    wait_time = 2**attempt
-                    await asyncio.sleep(wait_time)
-                else:
-                    yield StreamEvent(
-                        type=StreamEventType.ERROR,
-                        error=f"Connection error: {e}",
-                    )
-                    return
-            except APIError as e:
-                yield StreamEvent(
-                    type=StreamEventType.ERROR,
-                    error=f"API error: {e}",
-                )
-                return
+        Yields:
+            StreamEvent objects compatible with the agent loop
+        """
+        provider = self._get_provider()
 
-    async def _stream_response(
-        self,
-        client: AsyncOpenAI,
-        kwargs: dict[str, Any],
-    ) -> AsyncGenerator[StreamEvent, None]:
-        response = await client.chat.completions.create(**kwargs)
-
-        finish_reason: str | None = None
-        usage: TokenUsage | None = None
-        tool_calls: dict[int, dict[str, Any]] = {}
-
-        async for chunk in response:
-            if hasattr(chunk, "usage") and chunk.usage:
-                usage = TokenUsage(
-                    prompt_tokens=chunk.usage.prompt_tokens,
-                    completion_tokens=chunk.usage.completion_tokens,
-                    total_tokens=chunk.usage.total_tokens,
-                    cached_tokens=chunk.usage.prompt_tokens_details.cached_tokens,
-                )
-
-            if not chunk.choices:
-                continue
-
-            choice = chunk.choices[0]
-            delta = choice.delta
-
-            if choice.finish_reason:
-                finish_reason = choice.finish_reason
-
-            if delta.content:
-                yield StreamEvent(
-                    type=StreamEventType.TEXT_DELTA,
-                    text_delta=TextDelta(delta.content),
-                )
-
-            if delta.tool_calls:
-                for tool_call_delta in delta.tool_calls:
-                    idx = tool_call_delta.index
-
-                    if idx not in tool_calls:
-                        tool_calls[idx] = {
-                            "id": tool_call_delta.id or "",
-                            "name": "",
-                            "arguments": "",
-                        }
-
-                        if tool_call_delta.function:
-                            if tool_call_delta.function.name:
-                                tool_calls[idx]["name"] = tool_call_delta.function.name
-                                yield StreamEvent(
-                                    type=StreamEventType.TOOL_CALL_START,
-                                    tool_call_delta=ToolCallDelta(
-                                        call_id=tool_calls[idx]["id"],
-                                        name=tool_call_delta.function.name,
-                                    ),
-                                )
-
-                        if tool_call_delta.function.arguments:
-                            tool_calls[idx][
-                                "arguments"
-                            ] += tool_call_delta.function.arguments
-
-                            yield StreamEvent(
-                                type=StreamEventType.TOOL_CALL_DELTA,
-                                tool_call_delta=ToolCallDelta(
-                                    call_id=tool_calls[idx]["id"],
-                                    name=tool_call_delta.function.name,
-                                    arguments_delta=tool_call_delta.function.arguments,
-                                ),
-                            )
-
-        for idx, tc in tool_calls.items():
-            yield StreamEvent(
-                type=StreamEventType.TOOL_CALL_COMPLETE,
-                tool_call=ToolCall(
-                    call_id=tc["id"],
-                    name=tc["name"],
-                    arguments=parse_tool_call_arguments(tc["arguments"]),
-                ),
-            )
-
-        yield StreamEvent(
-            type=StreamEventType.MESSAGE_COMPLETE,
-            finish_reason=finish_reason,
-            usage=usage,
+        # Call provider's chat_completion and bridge the events
+        provider_stream = provider.chat_completion(
+            messages=messages,
+            model=self.config.model_name,
+            tools=tools,
+            stream=stream,
+            temperature=self.config.temperature,
+            max_tokens=self.config.model.max_output_tokens,
         )
 
-    async def _non_stream_response(
-        self,
-        client: AsyncOpenAI,
-        kwargs: dict[str, Any],
-    ) -> StreamEvent:
-        response = await client.chat.completions.create(**kwargs)
-        choice = response.choices[0]
-        message = choice.message
-
-        text_delta = None
-        if message.content:
-            text_delta = TextDelta(content=message.content)
-
-        tool_calls: list[ToolCall] = []
-        if message.tool_calls:
-            for tc in message.tool_calls:
-                tool_calls.append(
-                    ToolCall(
-                        call_id=tc.id,
-                        name=tc.function.name,
-                        arguments=parse_tool_call_arguments(tc.function.arguments),
-                    )
-                )
-
-        usage = None
-        if response.usage:
-            usage = TokenUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
-                cached_tokens=response.usage.prompt_tokens_details.cached_tokens,
-            )
-
-        return StreamEvent(
-            type=StreamEventType.MESSAGE_COMPLETE,
-            text_delta=text_delta,
-            finish_reason=choice.finish_reason,
-            usage=usage,
-        )
+        # Bridge provider events to client events
+        async for event in self._bridge.adapt_stream(provider_stream):
+            yield event
