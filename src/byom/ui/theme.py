@@ -2,6 +2,7 @@
 BYOM AI Agents - Rich Theme
 
 Claude Code-inspired terminal theme with modern aesthetics.
+Enhanced for better visual hierarchy and readability.
 """
 
 from rich.theme import Theme
@@ -11,76 +12,82 @@ BYOM_THEME = Theme({
     # ═══════════════════════════════════════════════════════════════
     # GENERAL STYLES
     # ═══════════════════════════════════════════════════════════════
-    "info": "cyan",
-    "warning": "yellow",
-    "error": "bright_red bold",
-    "success": "bright_green",
+    "info": "dodger_blue2",
+    "warning": "yellow1",
+    "error": "red1 bold",
+    "success": "green3 bold",
     "dim": "grey50",
-    "muted": "grey62",
-    "border": "grey35",
-    "highlight": "bright_cyan bold",
+    "muted": "grey58",
+    "border": "grey42",
+    "highlight": "bold bright_cyan",
     "accent": "bright_magenta",
-    
+
     # ═══════════════════════════════════════════════════════════════
     # CONVERSATION ROLES
     # ═══════════════════════════════════════════════════════════════
     "user": "bright_blue bold",
     "user.prompt": "bright_blue",
     "assistant": "bright_white",
+    "assistant.header": "bright_cyan bold",
     "assistant.thinking": "grey70 italic",
     "system": "grey50 italic",
-    
+
     # ═══════════════════════════════════════════════════════════════
     # TOOL STYLES
     # ═══════════════════════════════════════════════════════════════
-    "tool": "bright_magenta bold",
+    "tool": "magenta bold",
     "tool.name": "bright_magenta",
-    "tool.running": "yellow",
-    "tool.success": "bright_green",
-    "tool.failed": "bright_red",
-    
+    "tool.running": "yellow1",
+    "tool.success": "green3",
+    "tool.failed": "red1",
+
     # Tool categories
-    "tool.read": "bright_cyan",
-    "tool.write": "bright_yellow",
-    "tool.shell": "bright_magenta",
-    "tool.network": "bright_blue",
-    "tool.memory": "bright_green",
-    "tool.mcp": "cyan",
-    
+    "tool.read": "cyan",
+    "tool.write": "yellow1",
+    "tool.shell": "medium_purple1",
+    "tool.network": "dodger_blue1",
+    "tool.memory": "green3",
+    "tool.mcp": "bright_cyan",
+
     # ═══════════════════════════════════════════════════════════════
     # CODE AND SYNTAX
     # ═══════════════════════════════════════════════════════════════
-    "code": "white",
+    "code": "grey93",
     "code.keyword": "bright_magenta",
     "code.string": "bright_green",
     "code.number": "bright_cyan",
     "code.comment": "grey50 italic",
     "code.function": "bright_yellow",
     "code.class": "bright_cyan bold",
-    
+
     # Diff highlighting
-    "diff.add": "bright_green",
-    "diff.remove": "bright_red",
-    "diff.header": "bright_cyan",
+    "diff.add": "green3",
+    "diff.remove": "red1",
+    "diff.header": "bright_cyan bold",
     "diff.line_number": "grey50",
-    
+
     # ═══════════════════════════════════════════════════════════════
     # STATUS AND PROGRESS
     # ═══════════════════════════════════════════════════════════════
     "status": "grey70",
+    "status.running": "yellow1",
+    "status.done": "green3",
+    "status.failed": "red1",
     "status.model": "bright_cyan",
     "status.tokens": "grey50",
     "status.time": "grey50",
     "progress": "bright_cyan",
+    "progress.bar": "bright_cyan",
+    "progress.percentage": "bright_white",
     "spinner": "bright_magenta",
-    
+
     # ═══════════════════════════════════════════════════════════════
     # PANELS AND BOXES
     # ═══════════════════════════════════════════════════════════════
     "panel.title": "bright_white bold",
     "panel.border": "grey35",
     "panel.accent": "bright_magenta",
-    
+
     # ═══════════════════════════════════════════════════════════════
     # TODOS AND TASKS
     # ═══════════════════════════════════════════════════════════════
@@ -88,7 +95,16 @@ BYOM_THEME = Theme({
     "todo.in_progress": "bright_cyan",
     "todo.completed": "grey50 strike",
     "todo.id": "grey50",
-    
+
+    # ═══════════════════════════════════════════════════════════════
+    # STATISTICS AND METRICS
+    # ═══════════════════════════════════════════════════════════════
+    "stat.label": "grey58",
+    "stat.value": "bright_white bold",
+    "stat.positive": "green3",
+    "stat.negative": "red1",
+    "stat.neutral": "yellow1",
+
     # ═══════════════════════════════════════════════════════════════
     # SPECIAL STATES
     # ═══════════════════════════════════════════════════════════════
@@ -96,6 +112,13 @@ BYOM_THEME = Theme({
     "processing": "bright_magenta",
     "waiting": "yellow",
     "confirmation": "bright_yellow bold",
+
+    # ═══════════════════════════════════════════════════════════════
+    # KEYBOARD AND SHORTCUTS
+    # ═══════════════════════════════════════════════════════════════
+    "key": "bright_white on grey23",
+    "shortcut.key": "bright_cyan bold",
+    "shortcut.description": "grey70",
 })
 
 # Box drawing characters for custom borders

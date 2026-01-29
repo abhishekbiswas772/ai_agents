@@ -22,6 +22,7 @@ from byom.utils.file_indexer import FileIndexer, FileCompleter
 from byom.commands.registry import CommandRegistry, CommandCompleter
 from byom.commands.base import CommandContext
 from byom.commands.core import register_default_commands
+from byom.ui.constants import MESSAGES, ICONS
 
 from byom import __version__
 from byom.agent.agent import Agent
@@ -150,12 +151,12 @@ class CLI:
 
                     await self._process_message(user_input)
                 except KeyboardInterrupt:
-                    console.print("\n[dim]💡 Tip: Use /exit to quit[/dim]")
+                    console.print(f"\n[dim]{MESSAGES['interrupt_hint']}[/dim]")
                 except EOFError:
                     break
 
             self.file_indexer.stop_watching()
-            console.print("\n[bright_cyan]👋 Goodbye! Thanks for using BYOM AI Agents.[/bright_cyan]")
+            console.print(f"\n[bright_cyan]{MESSAGES['goodbye']}[/bright_cyan]")
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
         """Get tool kind for display purposes"""

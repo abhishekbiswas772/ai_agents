@@ -11,12 +11,22 @@ from rich.prompt import Prompt
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.markdown import Markdown
+from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
+import re
+
 from byom.config.config import Config
 from byom.tools.base import ToolConfirmation
 from byom.utils.paths import display_path_rel_to_cwd
-import re
-
 from byom.utils.text import truncate_text
+from byom.ui.constants import (
+    ICONS,
+    MESSAGES,
+    LANGUAGE_MAP,
+    TOOL_ARG_ORDER,
+    SYNTAX_THEME,
+    MAX_BLOCK_TOKENS,
+    SHORTCUTS,
+)
 
 AGENT_THEME = Theme(
     {
@@ -72,7 +82,7 @@ class TUI:
         self._tool_args_by_call_id: dict[str, dict[str, Any]] = {}
         self.config = config
         self.cwd = self.config.cwd
-        self._max_block_tokens = 2500
+        self._max_block_tokens = MAX_BLOCK_TOKENS
 
     def begin_assistant(self) -> None:
         self.console.print()
@@ -94,19 +104,8 @@ class TUI:
         self.console.print(content, end="", markup=False)
 
     def _ordered_args(self, tool_name: str, args: dict[str, Any]) -> list[tuple]:
-        _PREFERRED_ORDER = {
-            "read_file": ["path", "offset", "limit"],
-            "write_file": ["path", "create_directories", "content"],
-            "edit": ["path", "replace_all", "old_string", "new_string"],
-            "shell": ["command", "timeout", "cwd"],
-            "list_dir": ["path", "include_hidden"],
-            "grep": ["path", "case_insensitive", "pattern"],
-            "glob": ["path", "pattern"],
-            "todos": ["id", "action", "content"],
-            "memory": ["action", "key", "value"],
-        }
-
-        preferred = _PREFERRED_ORDER.get(tool_name, [])
+        """Order tool arguments for display based on importance."""
+        preferred = TOOL_ARG_ORDER.get(tool_name, [])
         ordered: list[tuple[str, Any]] = []
         seen = set()
 
@@ -148,19 +147,12 @@ class TUI:
         tool_kind: str | None,
         arguments: dict[str, Any],
     ) -> None:
+        """Display tool call start with enhanced visuals."""
         self._tool_args_by_call_id[call_id] = arguments
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
 
-        # Better icons based on tool kind
-        icon_map = {
-            "read": "📖",
-            "write": "✏️",
-            "shell": "⚡",
-            "network": "🌐",
-            "memory": "💾",
-            "mcp": "🔌",
-        }
-        icon = icon_map.get(tool_kind, "🔧")
+        # Get icon based on tool kind from constants
+        icon = ICONS.get(tool_kind, ICONS["tool"])
 
         title = Text.assemble(
             (f"{icon} ", "tool"),
@@ -179,14 +171,11 @@ class TUI:
             (
                 self._render_args_table(name, display_args)
                 if display_args
-                else Text(
-                    "(no args)",
-                    style="muted",
-                )
+                else Text(MESSAGES["no_args"], style="muted")
             ),
             title=title,
             title_align="left",
-            subtitle=Text("⏳ running...", style="status.running"),
+            subtitle=Text(f"{ICONS['running']} running...", style="status.running"),
             subtitle_align="right",
             border_style=border_style,
             box=box.ROUNDED,
@@ -222,58 +211,44 @@ class TUI:
         return start_line, "\n".join(code_lines)
 
     def _guess_language(self, path: str | None) -> str:
+        """Guess programming language from file extension."""
         if not path:
             return "text"
         suffix = Path(path).suffix.lower()
-        return {
-            ".py": "python",
-            ".js": "javascript",
-            ".jsx": "jsx",
-            ".ts": "typescript",
-            ".tsx": "tsx",
-            ".json": "json",
-            ".toml": "toml",
-            ".yaml": "yaml",
-            ".yml": "yaml",
-            ".md": "markdown",
-            ".sh": "bash",
-            ".bash": "bash",
-            ".zsh": "bash",
-            ".rs": "rust",
-            ".go": "go",
-            ".java": "java",
-            ".kt": "kotlin",
-            ".swift": "swift",
-            ".c": "c",
-            ".h": "c",
-            ".cpp": "cpp",
-            ".hpp": "cpp",
-            ".css": "css",
-            ".html": "html",
-            ".xml": "xml",
-            ".sql": "sql",
-        }.get(suffix, "text")
+        return LANGUAGE_MAP.get(suffix, "text")
 
     def print_welcome(self, title: str, lines: list[str]) -> None:
+        """Display enhanced welcome message with shortcuts."""
         # Create a richer welcome display
         content = []
 
         for line in lines:
             if line.startswith("version:"):
-                content.append(Text(f"📦 {line}", style="info"))
+                content.append(Text(f"{ICONS['version']} {line}", style="info"))
             elif line.startswith("model:"):
-                content.append(Text(f"🤖 {line}", style="highlight"))
+                content.append(Text(f"{ICONS['model']} {line}", style="highlight"))
             elif line.startswith("cwd:"):
-                content.append(Text(f"📂 {line}", style="muted"))
+                content.append(Text(f"{ICONS['cwd']} {line}", style="muted"))
             elif line.startswith("commands:"):
-                content.append(Text(f"⌨️  {line}", style="dim"))
+                content.append(Text(f"{ICONS['commands']} {line}", style="dim"))
             else:
                 content.append(Text(line, style="code"))
+
+        # Add keyboard shortcuts hint
+        content.append(Text())  # Empty line
+        shortcuts_text = Text("💡 Shortcuts: ", style="dim")
+        shortcuts_text.append("Tab", style="shortcut.key")
+        shortcuts_text.append(" autocomplete  ", style="dim")
+        shortcuts_text.append("@", style="shortcut.key")
+        shortcuts_text.append(" files  ", style="dim")
+        shortcuts_text.append("/", style="shortcut.key")
+        shortcuts_text.append(" commands", style="dim")
+        content.append(shortcuts_text)
 
         self.console.print(
             Panel(
                 Group(*content),
-                title=Text(f"✨ {title}", style="highlight"),
+                title=Text(f"{ICONS['welcome']} {title}", style="highlight"),
                 title_align="left",
                 subtitle=Text("Type your message or /help for commands", style="muted"),
                 subtitle_align="right",
@@ -351,7 +326,7 @@ class TUI:
                     Syntax(
                         code,
                         pl,
-                        theme="monokai",
+                        theme=SYNTAX_THEME,
                         line_numbers=True,
                         start_line=start_line,
                         word_wrap=False,
@@ -367,7 +342,7 @@ class TUI:
                     Syntax(
                         output_display,
                         "text",
-                        theme="monokai",
+                        theme=SYNTAX_THEME,
                         word_wrap=False,
                     )
                 )
@@ -384,7 +359,7 @@ class TUI:
                 Syntax(
                     diff_display,
                     "diff",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -405,7 +380,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -431,7 +406,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -454,7 +429,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -472,7 +447,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -497,7 +472,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -525,7 +500,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -539,7 +514,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -566,7 +541,7 @@ class TUI:
                 Syntax(
                     output_display,
                     "text",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -582,7 +557,7 @@ class TUI:
                     Syntax(
                         output_display,
                         "text",
-                        theme="monokai",
+                        theme=SYNTAX_THEME,
                         word_wrap=True,
                     )
                 )
@@ -645,7 +620,7 @@ class TUI:
                 Syntax(
                     diff_text,
                     "diff",
-                    theme="monokai",
+                    theme=SYNTAX_THEME,
                     word_wrap=True,
                 )
             )
@@ -673,49 +648,153 @@ class TUI:
         return response.lower() in {"y", "yes"}
 
     def show_token_usage(self, input_tokens: int, output_tokens: int, total_tokens: int) -> None:
-        """Display token usage statistics"""
+        """Display enhanced token usage statistics with visual indicators."""
         if not self.config.ui.show_token_usage:
             return
 
+        # Create a table with better formatting
         usage_table = Table.grid(padding=(0, 2))
-        usage_table.add_column(style="muted", justify="right")
-        usage_table.add_column(style="info")
+        usage_table.add_column(style="stat.label", justify="right", width=12)
+        usage_table.add_column(style="stat.value", justify="right", width=15)
+        usage_table.add_column(style="dim", width=20)
 
-        usage_table.add_row("📥 Input:", f"{input_tokens:,} tokens")
-        usage_table.add_row("📤 Output:", f"{output_tokens:,} tokens")
-        usage_table.add_row("📊 Total:", f"{total_tokens:,} tokens")
+        # Calculate percentages
+        input_pct = (input_tokens / total_tokens * 100) if total_tokens > 0 else 0
+        output_pct = (output_tokens / total_tokens * 100) if total_tokens > 0 else 0
+
+        # Create visual bars
+        bar_width = 15
+        input_bar = "█" * int(input_pct / 100 * bar_width)
+        output_bar = "█" * int(output_pct / 100 * bar_width)
+
+        usage_table.add_row(
+            f"{ICONS['token']} Input:",
+            f"{input_tokens:,}",
+            f"[stat.positive]{input_bar}[/] {input_pct:.1f}%"
+        )
+        usage_table.add_row(
+            f"{ICONS['token']} Output:",
+            f"{output_tokens:,}",
+            f"[stat.neutral]{output_bar}[/] {output_pct:.1f}%"
+        )
+        usage_table.add_row(
+            "",
+            "─" * 15,
+            ""
+        )
+        usage_table.add_row(
+            f"{ICONS['stats']} Total:",
+            f"[bold]{total_tokens:,}[/]",
+            ""
+        )
 
         self.console.print(
             Panel(
                 usage_table,
-                title=Text("💰 Token Usage", style="muted"),
+                title=Text(f"{ICONS['token']} Token Usage", style="highlight"),
                 title_align="left",
-                border_style="dim",
+                border_style="border",
                 box=box.ROUNDED,
-                padding=(0, 1),
+                padding=(1, 2),
             )
         )
 
+    def show_statistics(
+        self,
+        turns: int,
+        tool_calls: int,
+        total_input_tokens: int,
+        total_output_tokens: int,
+        session_time: float,
+    ) -> None:
+        """Display comprehensive session statistics dashboard."""
+        total_tokens = total_input_tokens + total_output_tokens
+
+        # Create main statistics table
+        stats_table = Table.grid(padding=(0, 3))
+        stats_table.add_column(style="stat.label", justify="right", width=20)
+        stats_table.add_column(style="stat.value", justify="left")
+
+        # Session metrics
+        stats_table.add_row(
+            f"{ICONS['stats']} Conversation Turns:",
+            f"[stat.value]{turns:,}[/]"
+        )
+        stats_table.add_row(
+            f"{ICONS['tool']} Tool Calls:",
+            f"[stat.value]{tool_calls:,}[/]"
+        )
+        stats_table.add_row(
+            f"{ICONS['time']} Session Time:",
+            f"[stat.value]{session_time:.1f}s[/]"
+        )
+        stats_table.add_row("", "")  # Spacer
+
+        # Token usage
+        stats_table.add_row(
+            f"{ICONS['token']} Input Tokens:",
+            f"[stat.positive]{total_input_tokens:,}[/]"
+        )
+        stats_table.add_row(
+            f"{ICONS['token']} Output Tokens:",
+            f"[stat.neutral]{total_output_tokens:,}[/]"
+        )
+        stats_table.add_row(
+            f"{ICONS['stats']} Total Tokens:",
+            f"[bold bright_white]{total_tokens:,}[/]"
+        )
+
+        # Calculate averages if we have turns
+        if turns > 0:
+            avg_tokens_per_turn = total_tokens / turns
+            stats_table.add_row("", "")  # Spacer
+            stats_table.add_row(
+                "📊 Avg Tokens/Turn:",
+                f"[stat.value]{avg_tokens_per_turn:,.1f}[/]"
+            )
+
+        self.console.print()
+        self.console.print(
+            Panel(
+                stats_table,
+                title=Text(f"{ICONS['stats']} Session Statistics", style="highlight"),
+                title_align="left",
+                subtitle=Text("Current session metrics", style="muted"),
+                subtitle_align="right",
+                border_style="highlight",
+                box=box.DOUBLE,
+                padding=(1, 2),
+            )
+        )
+        self.console.print()
+
     def show_help(self) -> None:
-        help_text = """
-# 📚 BYOM AI Agents - Help
+        """Display enhanced help with keyboard shortcuts and examples."""
+        help_text = f"""
+# {ICONS['help']} BYOM AI Agents - Help
 
 ## 🎮 Basic Commands
 
 | Command | Description |
 |---------|-------------|
 | `/help` | Show this help message |
-| `/exit` or `/quit` | Exit the agent |
-| `/clear` | Clear conversation history |
+| `/stats` | Show session statistics dashboard |
+| `/config` | Display current configuration |
+| `/model <name>` | Change the active model |
+| `/approval <mode>` | Set approval policy (auto/on-request/never) |
+| `/exit` or `/quit` | Exit the application |
 
-## ⚙️  Configuration
+## ⌨️ Keyboard Shortcuts
 
-| Command | Description |
-|---------|-------------|
-| `/config` | Show current configuration |
-| `/model <name>` | Change the model |
-| `/approval <mode>` | Change approval mode (auto/on-request/never) |
-
+| Shortcut | Action |
+|----------|--------|
+| `Tab` | Trigger autocomplete |
+| `Shift+Tab` | Navigate completions backward |
+| `@` | Autocomplete file paths |
+| `/` | Autocomplete slash commands |
+| `Ctrl+C` | Interrupt current operation |
+| `Ctrl+D` | Exit (EOF) |
+| `↑/↓` | Navigate through completions |
 
 ## 🚀 Quick Start Examples
 
@@ -723,12 +802,36 @@ class TUI:
 # Ask the agent to read a file
 What's in src/main.py?
 
+# Reference files with @ autocomplete
+Please review @src/config.py and suggest improvements
+
 # Request code changes
 Add error handling to the login function
 
 # Run shell commands
 Run the tests and show me the results
+
+# Use slash commands
+/stats          # View session statistics
+/config         # Check current configuration
+/model gpt-4    # Switch to a different model
 ```
+
+## 💡 Tips
+
+- Use `@` to trigger file path autocomplete
+- Use `/` to see available slash commands
+- Session statistics are available with `/stats`
+- Press `Tab` for intelligent code/path suggestions
+- All file paths are shown relative to your working directory
+
+## 📊 Features
+
+- **Smart Autocomplete**: File paths and commands
+- **Token Usage Tracking**: Monitor your API usage
+- **Session Statistics**: View turns, tool calls, and metrics
+- **Approval Policies**: Control what actions require confirmation
+- **MCP Integration**: Connect to Model Context Protocol servers
 """
         self.console.print()
         self.console.print(Markdown(help_text))

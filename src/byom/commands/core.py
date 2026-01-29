@@ -1,5 +1,6 @@
 from byom.commands.base import Command, CommandContext
 from byom.config.config import ApprovalPolicy
+import time
 
 class ExitCommand(Command):
     name = "/exit"
@@ -64,6 +65,41 @@ class ApprovalCommand(Command):
         return True
 
 
+class StatsCommand(Command):
+    name = "/stats"
+    description = "Show session statistics"
+
+    async def execute(self, context: CommandContext, args: str) -> bool:
+        """Display comprehensive session statistics."""
+        if not context.agent or not context.agent.session:
+            context.console.print("[error]No active session[/error]")
+            return True
+
+        session = context.agent.session
+        stats = session.get_stats()
+
+        # Calculate session duration
+        session_time = (session.updated_at - session.created_at).total_seconds()
+
+        # Get token usage
+        total_usage = stats.get("token_usage", {})
+        input_tokens = total_usage.get("input_tokens", 0) if isinstance(total_usage, dict) else getattr(total_usage, "input_tokens", 0)
+        output_tokens = total_usage.get("output_tokens", 0) if isinstance(total_usage, dict) else getattr(total_usage, "output_tokens", 0)
+
+        # Tool calls count - we'll estimate from message count
+        # In a real implementation, this should be tracked separately
+        tool_calls = max(0, stats.get("message_count", 0) - stats.get("turn_count", 0))
+
+        context.tui.show_statistics(
+            turns=stats.get("turn_count", 0),
+            tool_calls=tool_calls,
+            total_input_tokens=input_tokens,
+            total_output_tokens=output_tokens,
+            session_time=session_time,
+        )
+        return True
+
+
 
 
 def register_default_commands(registry):
@@ -73,17 +109,18 @@ def register_default_commands(registry):
         HelpCommand(),
         ConfigCommand(),
         ModelCommand(),
-        ApprovalCommand()
+        ApprovalCommand(),
+        StatsCommand()
     ]
-    
+
     # We can handle aliases by registering same instance with different name if Command structure allowed it,
     # or just separate classes. For now let's just make a QuitCommand or handle in registry.
     # To keep it simple, I'll add QuitCommand here as subclass
-    
+
     class QuitCommand(ExitCommand):
         name = "/quit"
-    
+
     commands.append(QuitCommand())
-    
+
     for cmd in commands:
         registry.register(cmd)
